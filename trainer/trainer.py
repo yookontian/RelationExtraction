@@ -5,6 +5,8 @@ from transformers import AdamW
 from utils.average_meter import AverageMeter
 from utils.functions import formulate_gold
 from utils.metric import metric, num_metric, overlap_metric
+import wandb
+
 
 
 class Trainer(nn.Module):
@@ -83,22 +85,36 @@ class Trainer(nn.Module):
                 if (batch_id + 1) % self.args.gradient_accumulation_steps == 0:
                     self.optimizer.step()
                     self.model.zero_grad()
+
+                if batch_id == 0:
+                    wandb.log({"loss": loss, "avg_loss": avg_loss.avg})
+
                 if batch_id % 100 == 0 and batch_id != 0:
-                    print("     Instance: %d; loss: %.4f" % (start, avg_loss.avg), flush=True)
+                    wandb.log({"loss": loss, "avg_loss": avg_loss.avg})
+                    print(f"     Instance: {start} / {total_batch * batch_size} ({(start / total_batch * batch_size):.2f}%); "
+                          f"loss: {avg_loss.avg:.4f}" , flush=True)
+
+            # print(f"avg_loss: {avg_loss.avg}")
+            # print(f"loss: {loss}")
+            wandb.log({"loss": loss, "avg_loss": avg_loss.avg})
             gc.collect()
             torch.cuda.empty_cache()
             # Validation
             print("=== Epoch %d Validation ===" % epoch)
             result = self.eval_model(self.data.valid_loader)
+            wandb.log({"eval_f1": result['f1'], "eval_precision": result['precision'], "eval_recall": result['recall']})
+
             # Test
             # print("=== Epoch %d Test ===" % epoch, flush=True)
             # result = self.eval_model(self.data.test_loader)
             f1 = result['f1']
             if f1 > best_f1:
                 print("Achieving Best Result on Validation Set.", flush=True)
-                # torch.save({'state_dict': self.model.state_dict()}, self.args.generated_param_directory + " %s_%s_epoch_%d_f1_%.4f.model" %(self.model.name, self.args.dataset_name, epoch, result['f1']))
+                torch.save({'state_dict': self.model.state_dict()}, self.args.generated_param_directory + " %s_%s_epoch_%d_f1_%.4f.model" %(self.model.name, self.args.dataset_name, epoch, result['f1']))
                 best_f1 = f1
                 best_result_epoch = epoch
+
+            best_result_epoch = epoch
             # if f1 <= 0.3 and epoch >= 10:
             #     break
             gc.collect()
@@ -124,9 +140,14 @@ class Trainer(nn.Module):
                     continue
                 input_ids, attention_mask, target, info = self.model.batchify(eval_instance)
                 gold.update(formulate_gold(target, info))
+                # print(f"gold: {gold}")
                 # print(target)
                 gen_triples = self.model.gen_triples(input_ids, attention_mask, info)
+                # print(f"gen_triples: {gen_triples}")
+                # print(f"gen_triples[0]: {gen_triples[0]}")
+                # print(f"gen_triples[0] length: {len(gen_triples[0])}")
                 prediction.update(gen_triples)
+
         num_metric(prediction, gold)
         overlap_metric(prediction, gold)
         return metric(prediction, gold)

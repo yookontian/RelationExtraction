@@ -11,12 +11,14 @@ class SetPred4RE(nn.Module):
 
     def __init__(self, args, num_classes):
         super(SetPred4RE, self).__init__()
+        self.name = args.model_name
         self.args = args
         self.encoder = SeqEncoder(args)
         config = self.encoder.config
         self.num_classes = num_classes
-        self.decoder = SetDecoder(config, args.num_generated_triples, args.num_decoder_layers, num_classes, return_intermediate=False)
-        self.criterion = SetCriterion(num_classes,  loss_weight=self.get_loss_weight(args), na_coef=args.na_rel_coef, losses=["entity", "relation"], matcher=args.matcher)
+        self.decoder = SetDecoder(config, args.num_generated_triples, args.num_decoder_layers, num_classes, return_intermediate=False, use_ILP=args.use_ILP)
+        self.criterion = SetCriterion(num_classes,  loss_weight=self.get_loss_weight(args), na_coef=args.na_rel_coef,
+                                      losses=["entity", "relation"], matcher=args.matcher, use_ILP=args.use_ILP, use_dotproduct=args.use_dotproduct)
 
     def forward(self, input_ids, attention_mask, targets=None):
         last_hidden_state, pooler_output = self.encoder(input_ids, attention_mask)

@@ -1,7 +1,7 @@
 import torch.nn.functional as F
 import torch.nn as nn
 import torch, math
-from models.matcher import HungarianMatcher
+from models.matcher import HungarianMatcher, ILPMatcher, HungarianMatcher_dotproduct, ILPMatcher_dotproduct
 
 
 class SetCriterion(nn.Module):
@@ -10,7 +10,7 @@ class SetCriterion(nn.Module):
         1) we compute hungarian assignment between ground truth and the outputs of the model
         2) we supervise each pair of matched ground-truth / prediction (supervise class, subject position and object position)
     """
-    def __init__(self, num_classes, loss_weight, na_coef, losses, matcher):
+    def __init__(self, num_classes, loss_weight, na_coef, losses, matcher, use_ILP=False, use_dotproduct=False):
         """ Create the criterion.
         Parameters:
             num_classes: number of relation categories
@@ -22,11 +22,24 @@ class SetCriterion(nn.Module):
         super().__init__()
         self.num_classes = num_classes
         self.loss_weight = loss_weight
-        self.matcher = HungarianMatcher(loss_weight, matcher)
+        if use_ILP and use_dotproduct:
+            self.matcher = ILPMatcher_dotproduct(loss_weight, matcher)
+        elif use_ILP and not use_dotproduct:
+            self.matcher = ILPMatcher(loss_weight, matcher)
+        elif not use_ILP and use_dotproduct:
+            self.matcher = HungarianMatcher_dotproduct(loss_weight, matcher)
+        else:
+            self.matcher = HungarianMatcher(loss_weight, matcher)
+
         self.losses = losses
-        rel_weight = torch.ones(self.num_classes + 1)
-        rel_weight[-1] = na_coef
+        if use_ILP:
+            rel_weight = torch.ones(self.num_classes)
+        else:
+            rel_weight = torch.ones(self.num_classes + 1)
+            rel_weight[-1] = na_coef
+        # print("the rel_weight: ", rel_weight)
         self.register_buffer('rel_weight', rel_weight)
+        self.use_ILP = use_ILP
 
     def forward(self, outputs, targets):
         """ This performs the loss computation.
@@ -39,12 +52,24 @@ class SetCriterion(nn.Module):
         indices = self.matcher(outputs, targets)
         # Compute all the requested losses
         losses = {}
+        # print("self.losses: ", self.losses)
         for loss in self.losses:
+            # print(f"before loss: {loss}")
+            # print(f"before losses: {losses}")
+            # print(f"outputs: {outputs}")
+            # print(f"targets: {targets}")
+            # print(f"indices: {indices}")
             if loss == "entity" and self.empty_targets(targets):
+                # print("empty targets", targets)
                 pass
             else:
                 losses.update(self.get_loss(loss, outputs, targets, indices))
+            # print(f"after loss: {loss}")
+            # print(f"after lossos: {losses}")
+
+        # print("self.loss_weight: ", self.loss_weight)
         losses = sum(losses[k] * self.loss_weight[k] for k in losses.keys() if k in self.loss_weight)
+        # print(f"losses: {losses})")
         return losses
 
     def relation_loss(self, outputs, targets, indices):
@@ -54,29 +79,64 @@ class SetCriterion(nn.Module):
         src_logits = outputs['pred_rel_logits'] # [bsz, num_generated_triples, num_rel+1]
         idx = self._get_src_permutation_idx(indices)
         target_classes_o = torch.cat([t["relation"][i] for t, (_, i) in zip(targets, indices)])
-        target_classes = torch.full(src_logits.shape[:2], self.num_classes,
-                                    dtype=torch.int64, device=src_logits.device)
+        # print("relation_loss====")
+        # for t, (wh, i) in zip(targets, indices):
+        #     print(f"t: {t}")
+        #     print(f"wh: {wh}")
+        #     print(f"i: {i}")
+        #     print(f"t['relation']: {t['relation']}")
+        # print(f"target_classes_o: {target_classes_o}")
+        # target_classes_o: all of the indexies of the relations in the batch
+        # target_classes: a size of (src_logits.shape[:2]) tensor, with all the values of num_classes
+        if self.use_ILP:
+            target_classes = torch.full(src_logits.shape[:2], self.num_classes-1,
+                                        dtype=torch.int64, device=src_logits.device)
+        else:
+            target_classes = torch.full(src_logits.shape[:2], self.num_classes,
+                                        dtype=torch.int64, device=src_logits.device)
+        # print(f"shape of src_logits.shape: {src_logits.shape}")
+        # print("shape of target_classes: ", target_classes.shape)
+        # print(f"src_logits: \n{src_logits}")
+        # print(f"target_classes_o: \n{target_classes_o}")
+        # print(f"idx: \n{idx}")
+        # print(f"target_classes[idx]: \n{target_classes[idx]}")
+        # if a predicted relation didn't match with any class, then it will be assigned to the last class
         target_classes[idx] = target_classes_o
+        # print(f"target_classes: \n{target_classes}")
+        # print(f"src_logits.flatten(0, 1):\n{src_logits.flatten(0, 1).shape}\n{src_logits.flatten(0, 1).argmax(-1)}")
+        # print(f"target_classes.flatten(0, 1): \n{target_classes.flatten(0, 1)}")
+
+        # print(f"self.rel_weight: {self.rel_weight}")
+        # print(f"shape of src_logits.flatten(0, 1): {src_logits.flatten(0, 1).shape}")
+        # print(f"shape of target_classes.flatten(0, 1): {target_classes.flatten(0, 1).shape}")
+        # print(f"target_classes.flatten(0, 1): {target_classes.flatten(0, 1)}")
+        # print(f"shape of self.rel_weight: {self.rel_weight.shape}")
         loss = F.cross_entropy(src_logits.flatten(0, 1), target_classes.flatten(0, 1), weight=self.rel_weight)
         losses = {'relation': loss}
         return losses
 
     @torch.no_grad()
     def loss_cardinality(self, outputs, targets, indices):
-        """ Compute the cardinality error, ie the absolute error in the number of predicted non-empty triples
+        """ Basically, this won't be used in the training process.
+        Compute the cardinality error, ie the absolute error in the number of predicted non-empty triples
         This is not really a loss, it is intended for logging purposes only. It doesn't propagate gradients
         """
         pred_rel_logits = outputs['pred_rel_logits']
         device = pred_rel_logits.device
         tgt_lengths = torch.as_tensor([len(v["labels"]) for v in targets], device=device)
         # Count the number of predictions that are NOT "no-object" (which is the last class)
+        # print(f"pred_rel_logits.argmax(-1): {pred_rel_logits.argmax(-1)}")
+        # print(f"pred_rel_logits.shape[-1] - 1: {pred_rel_logits.shape[-1] - 1}")
+
         card_pred = (pred_rel_logits.argmax(-1) != pred_rel_logits.shape[-1] - 1).sum(1)
+        # print(f"card_pred: {card_pred}")
         card_err = F.l1_loss(card_pred.float(), tgt_lengths.float())
         losses = {'cardinality_error': card_err}
         return losses
 
     def _get_src_permutation_idx(self, indices):
         # permute predictions following indices
+        # print(f"indices: \n{indices}")
         batch_idx = torch.cat([torch.full_like(src, i) for i, (src, _) in enumerate(indices)])
         src_idx = torch.cat([src for (src, _) in indices])
         return batch_idx, src_idx
@@ -98,13 +158,22 @@ class SetCriterion(nn.Module):
     def entity_loss(self, outputs, targets, indices):
         """Compute the losses related to the position of head entity or tail entity
         """
+        # print(f" We are in the entity_loss() function, the indices:\n {indices}")
         idx = self._get_src_permutation_idx(indices)
+        # print(f"We are in the entity_loss() function, after permutation, the idx:\n {idx}")
         selected_pred_head_start = outputs["head_start_logits"][idx]
+        # print(f"the shape of outputs['head_start_logits']: {outputs['head_start_logits'].shape}")
+        # print(f"the outputs['head_start_logits']: \n{outputs['head_start_logits']}")
+        # print("=====================================")
+        # print(f"the shape of selected_pred_head_start: {selected_pred_head_start.shape}")
+        # print(f"the selected_pred_head_start: \n{selected_pred_head_start}")
         selected_pred_head_end = outputs["head_end_logits"][idx]
         selected_pred_tail_start = outputs["tail_start_logits"][idx]
         selected_pred_tail_end = outputs["tail_end_logits"][idx]
 
         target_head_start = torch.cat([t["head_start_index"][i] for t, (_, i) in zip(targets, indices)])
+        # print(f"zip(targets, indices): \n{zip(targets, indices)}")
+        # print(f"target_head_start: \n{target_head_start}")
         target_head_end = torch.cat([t["head_end_index"][i] for t, (_, i) in zip(targets, indices)])
         target_tail_start = torch.cat([t["tail_start_index"][i] for t, (_, i) in zip(targets, indices)])
         target_tail_end = torch.cat([t["tail_end_index"][i] for t, (_, i) in zip(targets, indices)])

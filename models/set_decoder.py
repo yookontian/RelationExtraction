@@ -1,10 +1,11 @@
 import torch.nn as nn
 import torch
-from transformers.modeling_bert import BertIntermediate, BertOutput, BertAttention, BertLayerNorm, BertSelfAttention
+from transformers.models.bert.modeling_bert import BertIntermediate, BertOutput, BertAttention
 
+BertLayerNorm = nn.LayerNorm
 
 class SetDecoder(nn.Module):
-    def __init__(self, config, num_generated_triples, num_layers, num_classes, return_intermediate=False):
+    def __init__(self, config, num_generated_triples, num_layers, num_classes, return_intermediate=False, use_ILP=False):
         super().__init__()
         self.return_intermediate = return_intermediate
         self.num_generated_triples = num_generated_triples
@@ -12,22 +13,30 @@ class SetDecoder(nn.Module):
         self.LayerNorm = BertLayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.query_embed = nn.Embedding(num_generated_triples, config.hidden_size)
-        self.decoder2class = nn.Linear(config.hidden_size, num_classes + 1)
-        self.decoder2span = nn.Linear(config.hidden_size, 4)
+        if use_ILP:
+            self.decoder2class = nn.Linear(config.hidden_size, num_classes)
+        else:
+            self.decoder2class = nn.Linear(config.hidden_size, num_classes + 1)
+        # self.decoder2span = nn.Linear(config.hidden_size, 4)
 
         self.head_start_metric_1 = nn.Linear(config.hidden_size, config.hidden_size)
         self.head_end_metric_1 = nn.Linear(config.hidden_size, config.hidden_size)
+
         self.tail_start_metric_1 = nn.Linear(config.hidden_size, config.hidden_size)
         self.tail_end_metric_1 = nn.Linear(config.hidden_size, config.hidden_size)
+
         self.head_start_metric_2 = nn.Linear(config.hidden_size, config.hidden_size)
         self.head_end_metric_2 = nn.Linear(config.hidden_size, config.hidden_size)
+
         self.tail_start_metric_2 = nn.Linear(config.hidden_size, config.hidden_size)
         self.tail_end_metric_2 = nn.Linear(config.hidden_size, config.hidden_size)
+
         self.head_start_metric_3 = nn.Linear(config.hidden_size, 1, bias=False)
         self.head_end_metric_3 = nn.Linear(config.hidden_size, 1, bias=False)
+
         self.tail_start_metric_3 = nn.Linear(config.hidden_size, 1, bias=False)
         self.tail_end_metric_3 = nn.Linear(config.hidden_size, 1, bias=False)
-        
+
         torch.nn.init.orthogonal_(self.head_start_metric_1.weight, gain=1)
         torch.nn.init.orthogonal_(self.head_end_metric_1.weight, gain=1)
         torch.nn.init.orthogonal_(self.tail_start_metric_1.weight, gain=1)
@@ -42,7 +51,10 @@ class SetDecoder(nn.Module):
 
     def forward(self, encoder_hidden_states, encoder_attention_mask):
         bsz = encoder_hidden_states.size()[0]
+        # print("the shape of query_embed.weight: ", self.query_embed.weight.shape)
         hidden_states = self.query_embed.weight.unsqueeze(0).repeat(bsz, 1, 1)
+        # print("the shape of hidden_states: ", hidden_states.shape)
+        # hidden_state: [bsz, num_generated_triples, hidden_size]
         hidden_states = self.dropout(self.LayerNorm(hidden_states))
         all_hidden_states = ()
         for i, layer_module in enumerate(self.layers):
@@ -54,7 +66,7 @@ class SetDecoder(nn.Module):
             hidden_states = layer_outputs[0]
 
         class_logits = self.decoder2class(hidden_states)
-        
+
         head_start_logits = self.head_start_metric_3(torch.tanh(
             self.head_start_metric_1(hidden_states).unsqueeze(2) + self.head_start_metric_2(
                 encoder_hidden_states).unsqueeze(1))).squeeze()
@@ -77,7 +89,9 @@ class DecoderLayer(nn.Module):
         super().__init__()
         self.attention = BertAttention(config)
         self.crossattention = BertAttention(config)
+        # BertIntermediate: linear + gelu
         self.intermediate = BertIntermediate(config)
+        # BertOutput: layer+dropout+residual+layer_norm
         self.output = BertOutput(config)
 
     def forward(
@@ -87,6 +101,9 @@ class DecoderLayer(nn.Module):
         encoder_attention_mask
     ):
         self_attention_outputs = self.attention(hidden_states)
+        # print("the shape of hidden_states: ", hidden_states.shape)
+        # print("the shape of self_attention_outputs: ", self_attention_outputs[0].shape)
+
         attention_output = self_attention_outputs[0]
         outputs = self_attention_outputs[1:]  # add self attentions if we output attention weights
 
@@ -102,11 +119,14 @@ class DecoderLayer(nn.Module):
                     encoder_hidden_shape, encoder_attention_mask.shape
                 )
             )
+        # The mask is also transformed so that positions with a value of 1 (indicating they should be masked) are set to
+        # a large negative value (-10000.0), making them effectively zero when passed through a softmax.
         encoder_extended_attention_mask = (1.0 - encoder_extended_attention_mask) * -10000.0
         cross_attention_outputs = self.crossattention(
             hidden_states=attention_output, encoder_hidden_states=encoder_hidden_states,  encoder_attention_mask=encoder_extended_attention_mask
         )
         attention_output = cross_attention_outputs[0]
+        # print("the shape of cross_attention_outputs: ", cross_attention_outputs[0].shape)
         outputs = outputs + cross_attention_outputs[1:]  # add cross attentions if we output attention weights
 
         intermediate_output = self.intermediate(attention_output)
