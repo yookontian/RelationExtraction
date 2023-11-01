@@ -52,11 +52,17 @@ class SetDecoder(nn.Module):
     def forward(self, encoder_hidden_states, encoder_attention_mask):
         bsz = encoder_hidden_states.size()[0]
         # print("the shape of query_embed.weight: ", self.query_embed.weight.shape)
+        # query_embed.weight: (nun_generated_triples, hidden_size)
+        # repeat the query_embed.weight for bsz times
         hidden_states = self.query_embed.weight.unsqueeze(0).repeat(bsz, 1, 1)
         # print("the shape of hidden_states: ", hidden_states.shape)
         # hidden_state: [bsz, num_generated_triples, hidden_size]
         hidden_states = self.dropout(self.LayerNorm(hidden_states))
         all_hidden_states = ()
+
+        # print(f"hidden_states shape:\n{hidden_states.shape}")
+        # print(f"encoder_hidden_states shape:\n{encoder_hidden_states.shape}")
+        # print("=====================================")
         for i, layer_module in enumerate(self.layers):
             if self.return_intermediate:
                 all_hidden_states = all_hidden_states + (hidden_states,)
@@ -66,6 +72,7 @@ class SetDecoder(nn.Module):
             hidden_states = layer_outputs[0]
 
         class_logits = self.decoder2class(hidden_states)
+
 
         head_start_logits = self.head_start_metric_3(torch.tanh(
             self.head_start_metric_1(hidden_states).unsqueeze(2) + self.head_start_metric_2(
@@ -125,6 +132,8 @@ class DecoderLayer(nn.Module):
         cross_attention_outputs = self.crossattention(
             hidden_states=attention_output, encoder_hidden_states=encoder_hidden_states,  encoder_attention_mask=encoder_extended_attention_mask
         )
+        # print(f"cross_attention_outputs shape: {cross_attention_outputs[0].shape}")
+        # print("=====================================")
         attention_output = cross_attention_outputs[0]
         # print("the shape of cross_attention_outputs: ", cross_attention_outputs[0].shape)
         outputs = outputs + cross_attention_outputs[1:]  # add cross attentions if we output attention weights

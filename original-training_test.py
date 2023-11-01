@@ -22,10 +22,11 @@ def set_seed(seed):
 class make_args:
     def __init__(self):
         self.generated_data_directory = "data/NYT/generated_data/"
-        self.generated_param_directory = "data/NYT/Hungarian-model-param/"
+        self.generated_param_directory = "data/NYT/Hungarian-model-spanbert-regressive/"
         self.dataset_name = "NYT"
         self.model_name = "HungarianModel"
-        self.bert_directory = "bert-base-cased"
+        # self.bert_directory = "bert-base-cased"
+        self.bert_directory = "SpanBERT/spanbert-base-cased"
         self.train_file = "data/NYT/exact_data/train.json"
         self.valid_file = "data/NYT/exact_data/valid.json"
         self.test_file = "data/NYT/exact_data/test.json"
@@ -59,6 +60,9 @@ class make_args:
 
         # new attribute
         self.use_ILP = False
+        self.use_dotproduct = False
+        self.use_regressive_decoder = True
+        self.batch_size = 4
 
     def __iter__(self):
         for attr in dir(self):
@@ -78,12 +82,13 @@ model = SetPred4RE(a, data.relational_alphabet.size())
 # start a new wandb run to track this script
 wandb.init(
     project="SPN4RE",
-    name="SPN4RE-NYT-Hungarian-0.5coef",
+    name="SPN4RE-NYT-Hungarian-SpanBert-regressive-0.25coef",
 )
 
 wandb.watch(model, log_freq=100)
 
 trainer = Trainer(model, data, a)
+print(f"batch_size: {trainer.args.batch_size}")
 print("start training")
 # with torch.no_grad():
 trainer.train_model()

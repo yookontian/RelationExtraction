@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch
 from models.set_decoder import SetDecoder
+from models.set_regressive_decoder import SetRegressiveDecoder
 from models.set_criterion import SetCriterion
 from models.seq_encoder import SeqEncoder
 from utils.functions import generate_triple
@@ -16,7 +17,10 @@ class SetPred4RE(nn.Module):
         self.encoder = SeqEncoder(args)
         config = self.encoder.config
         self.num_classes = num_classes
-        self.decoder = SetDecoder(config, args.num_generated_triples, args.num_decoder_layers, num_classes, return_intermediate=False, use_ILP=args.use_ILP)
+        if args.use_regressive_decoder:
+            self.decoder = SetRegressiveDecoder(config, args.num_generated_triples, args.num_decoder_layers, num_classes, return_intermediate=False, use_ILP=args.use_ILP)
+        else:
+            self.decoder = SetDecoder(config, args.num_generated_triples, args.num_decoder_layers, num_classes, return_intermediate=False, use_ILP=args.use_ILP)
         self.criterion = SetCriterion(num_classes,  loss_weight=self.get_loss_weight(args), na_coef=args.na_rel_coef,
                                       losses=["entity", "relation"], matcher=args.matcher, use_ILP=args.use_ILP, use_dotproduct=args.use_dotproduct)
 

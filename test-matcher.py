@@ -15,11 +15,11 @@ torch.manual_seed(seed_value)
 # }
 
 outputs = {
-    "pred_rel_logits": torch.rand(2, 3, 2),
-    "head_start_logits": torch.rand(2, 3, 5),
-    "head_end_logits": torch.rand(2, 3, 5),
-    "tail_start_logits": torch.rand(2, 3, 5),
-    "tail_end_logits": torch.rand(2, 3, 5),
+    "pred_rel_logits": torch.rand(2, 2, 2),
+    "head_start_logits": torch.rand(2, 2, 5),
+    "head_end_logits": torch.rand(2, 2, 5),
+    "tail_start_logits": torch.rand(2, 2, 5),
+    "tail_end_logits": torch.rand(2, 2, 5),
 }
 
 # outputs = {
@@ -72,26 +72,26 @@ marcher_3 = ILPMatcher_dotproduct({
     "tail_entity": torch.tensor([1])
 }, "avg")
 
-time_marcher_start = time.time()
+# time_marcher_start = time.time()
 print(f"Hungarian: \n{marcher(outputs, targets)}")
-time_marcher_end = time.time()
-print("time for HungarianMatcher: ", time_marcher_end - time_marcher_start)
+# time_marcher_end = time.time()
+# print("time for HungarianMatcher: ", time_marcher_end - time_marcher_start)
 
-time_marcher_start = time.time()
+# time_marcher_start = time.time()
 print(f"Hungarian_dotproduct: \n{marcher_2(outputs, targets)}")
-time_marcher_end = time.time()
-print("time for HungarianMatcher_dotproduct: ", time_marcher_end - time_marcher_start)
+# time_marcher_end = time.time()
+# print("time for HungarianMatcher_dotproduct: ", time_marcher_end - time_marcher_start)
 
-time_marcher_start = time.time()
+# time_marcher_start = time.time()
 print(f"ILP: \n{marcher_1(outputs, targets)}")
-time_marcher_end = time.time()
-print("time for ILPMatcher: ", time_marcher_end - time_marcher_start)
+# time_marcher_end = time.time()
+# print("time for ILPMatcher: ", time_marcher_end - time_marcher_start)
 
 
-time_marcher_start = time.time()
+# time_marcher_start = time.time()
 print(f"ILP_dotproduct: \n{marcher_3(outputs, targets)}")
-time_marcher_end = time.time()
-print("time for ILPMatcher_dotproduct: ", time_marcher_end - time_marcher_start)
+# time_marcher_end = time.time()
+# print("time for ILPMatcher_dotproduct: ", time_marcher_end - time_marcher_start)
 
 
 # for the output, it is a list of tuple, with the first element being the index of the prediction, and the second

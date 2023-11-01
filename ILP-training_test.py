@@ -22,7 +22,7 @@ def set_seed(seed):
 class make_args:
     def __init__(self):
         self.generated_data_directory = "data/NYT/generated_data/"
-        self.generated_param_directory = "data/NYT/ILP-model_param-noNoneClass-NoABS-dotproduct/"
+        self.generated_param_directory = "data/NYT/ILP-model_param-noNoneClass-NoABS/"
         self.dataset_name = "NYT"
         self.model_name = "ILPmodel-noNoneClass-NoABS-dotproduct"
         self.bert_directory = "bert-base-cased"

@@ -1,12 +1,15 @@
 from models.seq_encoder import SeqEncoder
 from models.set_decoder import SetDecoder
+from models.set_regressive_decoder import SetRegressiveDecoder
 import torch
 from transformers import BertTokenizer
 
 class Args:
     def __init__(self, **kwargs):
-        self.bert_directory = "bert-base-cased"
+        # self.bert_directory = "bert-base-cased"
+        self.bert_directory = "SpanBERT/spanbert-base-cased"
         self.fix_bert_embeddings = True
+
 
 
 bert_args = Args()
@@ -24,7 +27,8 @@ print("last_hidden_state: ", last_hidden_state.shape)
 print("pooler_output: ", pooler_output.shape, "\n====================\n")
 
 
-decoder = SetDecoder(encoder.config, 5, 2, 10, return_intermediate=False)
+decoder = SetRegressiveDecoder(encoder.config, 5, 2, 10, return_intermediate=False)
+# decoder = SetDecoder(encoder.config, 5, 2, 10, return_intermediate=False)
 decoder_output = decoder(encoder_hidden_states=last_hidden_state, encoder_attention_mask=tokenized_text["attention_mask"])
 class_logits, head_start_logits, head_end_logits, tail_start_logits, tail_end_logits  = decoder_output
 

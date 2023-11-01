@@ -6,6 +6,8 @@ from scipy.optimize import linear_sum_assignment
 from torch import nn
 import numpy as np
 
+import time
+
 from pyscipopt import Model, quicksum
 
 
@@ -39,6 +41,7 @@ class HungarianMatcher(nn.Module):
             For each batch element, it holds:
                 len(index_i) = len(index_j) = min(num_generated_triples, num_gold_triples)
         """
+        # hungarian_start = time.time()
         bsz, num_generated_triples = outputs["pred_rel_logits"].shape[:2]
         # We flatten to compute the cost matrices in a batch
         pred_rel = outputs["pred_rel_logits"].flatten(0, 1).softmax(-1)  # [bsz * num_generated_triples, num_classes]
@@ -46,26 +49,31 @@ class HungarianMatcher(nn.Module):
         # print("pred_rel: \n", pred_rel)
         # print("gold_rel:\n ", gold_rel)
         # after masking the pad token
+        # print(f'outputs["head_start_logits"]: \n{outputs["head_start_logits"]}')
+        # replace all the nan value with -1e9 in the tensor outputs["head_start_logits"]
+        outputs["head_start_logits"] = torch.where(torch.isnan(outputs["head_start_logits"]), torch.full_like(outputs["head_start_logits"], -1e9), outputs["head_start_logits"])
         pred_head_start = outputs["head_start_logits"].flatten(0, 1).softmax(-1)  # [bsz * num_generated_triples, seq_len]
+        outputs["head_end_logits"] = torch.where(torch.isnan(outputs["head_end_logits"]), torch.full_like(outputs["head_end_logits"], -1e9), outputs["head_end_logits"])
         pred_head_end = outputs["head_end_logits"].flatten(0, 1).softmax(-1)
+        outputs["tail_start_logits"] = torch.where(torch.isnan(outputs["tail_start_logits"]), torch.full_like(outputs["tail_start_logits"], -1e9), outputs["tail_start_logits"])
         pred_tail_start = outputs["tail_start_logits"].flatten(0, 1).softmax(-1)
+        outputs["tail_end_logits"] = torch.where(torch.isnan(outputs["tail_end_logits"]), torch.full_like(outputs["tail_end_logits"], -1e9), outputs["tail_end_logits"])
         pred_tail_end = outputs["tail_end_logits"].flatten(0, 1).softmax(-1)
-
 
         gold_head_start = torch.cat([v["head_start_index"] for v in targets])
         gold_head_end = torch.cat([v["head_end_index"] for v in targets])
         gold_tail_start = torch.cat([v["tail_start_index"] for v in targets])
         gold_tail_end = torch.cat([v["tail_end_index"] for v in targets])
 
-        # print(pred_rel)
-        # print(gold_rel)
+        # print(f'====matcher\npred_head_start"]:\n{pred_head_start}')
 
-
-        # print("pred_rel: \n", pred_rel.shape)
-        # print("pred_rel[:, gold_rel]: ", pred_rel[:, gold_rel].shape)
-        # print("pred_head_start[:, gold_head_start]: ", pred_head_start[:, gold_head_start].shape)
         if self.matcher == "avg":
+            # hungarian_start = time.time()
             cost = - self.cost_relation * pred_rel[:, gold_rel] - self.cost_head * 1/2 * (pred_head_start[:, gold_head_start] + pred_head_end[:, gold_head_end]) - self.cost_tail * 1/2 * (pred_tail_start[:, gold_tail_start] + pred_tail_end[:, gold_tail_end])
+            # hungarian_end = time.time()
+            # print("time for hungarian: ", hungarian_end - hungarian_start)
+            # print(f"cost: \n{cost}")
+
         elif self.matcher == "min":
             cost = torch.cat([pred_head_start[:, gold_head_start].unsqueeze(1), pred_rel[:, gold_rel].unsqueeze(1), pred_head_end[:, gold_head_end].unsqueeze(1), pred_tail_start[:, gold_tail_start].unsqueeze(1), pred_tail_end[:, gold_tail_end].unsqueeze(1)], dim=1)
             cost = - torch.min(cost, dim=1)[0]
@@ -82,28 +90,17 @@ class HungarianMatcher(nn.Module):
 
         num_gold_triples = [len(v["relation"]) for v in targets]
 
-        # linear_sum_assignment(cost_matrix: array, maximaze: bool = False) -> array (row_ind, col_ind)
-        # print("num_gold_triples: ", num_gold_triples)
-        # print("cost.split(num_gold_triples, -1) \n", cost.split(num_gold_triples, -1))
-
-        # print("cost: \n", cost)
-        # if bsz > 1, num_gold_triples is a list,
-        # first split out [bsz, num_generated_triples, num_gold_triples for batch-i], but only take c[i], i is the batch
-        # for i, c in enumerate(cost.split(num_gold_triples, -1)):
-        #     print("i: ", i)
-        #     print("c[i] shape: ", c[i].shape)
-        #     print("c[i]: ", c[i])
-        #     print(f"linear_sum_assignment(c[i]): \n{linear_sum_assignment(c[i])}")
-
         pair = []
         for i, c in enumerate(cost.split(num_gold_triples, -1)):
             n = num_gold_triples[i]
-            # print("c[i]:\n", c[i])
+            # print(f"c[{i}]:\n{c[i]}")
             k = len(c[i])
             if n > k:
                 print("n_class: ", n, "n_generated_triple: ", k)
             pair.append(linear_sum_assignment(c[i]))
 
+        # hungarian_end = time.time()
+        # print("time for hungarian: ", hungarian_end - hungarian_start)
         # indices = [linear_sum_assignment(c[i]) for i, c in enumerate(cost.split(num_gold_triples, -1))]
 
 
@@ -120,7 +117,7 @@ def get_dot_cost(pred_rel, gold_rel):
         gold_rel_logits[i, gold_rel[i]] = 1.0
 
     pred_rel_norm = nn.functional.normalize(pred_rel, p=2, dim=1)
-    gold_rel_logits_norm = nn.functional.normalize(gold_rel_logits, p=2, dim=1)
+    gold_rel_logits_norm = nn.functional.normalize(gold_rel_logits, p=2, dim=1).to(pred_rel.device)
     cost_rel = torch.mm(pred_rel_norm, gold_rel_logits_norm.t())
     return cost_rel
 
@@ -156,6 +153,8 @@ class HungarianMatcher_dotproduct(nn.Module):
             For each batch element, it holds:
                 len(index_i) = len(index_j) = min(num_generated_triples, num_gold_triples)
         """
+        # time_hungarian_dot_start = time.time()
+
         bsz, num_generated_triples = outputs["pred_rel_logits"].shape[:2]
         # We flatten to compute the cost matrices in a batch
         pred_rel = outputs["pred_rel_logits"].flatten(0, 1).softmax(-1)  # [bsz * num_generated_triples, num_classes]
@@ -163,9 +162,14 @@ class HungarianMatcher_dotproduct(nn.Module):
         # print("pred_rel: \n", pred_rel)
         # print("gold_rel:\n ", gold_rel)
         # after masking the pad token
+        # replace all the nan value with -1e9 in the tensor outputs["head_start_logits"]
+        outputs["head_start_logits"] = torch.where(torch.isnan(outputs["head_start_logits"]), torch.full_like(outputs["head_start_logits"], -1e9), outputs["head_start_logits"])
         pred_head_start = outputs["head_start_logits"].flatten(0, 1).softmax(-1)  # [bsz * num_generated_triples, seq_len]
+        outputs["head_end_logits"] = torch.where(torch.isnan(outputs["head_end_logits"]), torch.full_like(outputs["head_end_logits"], -1e9), outputs["head_end_logits"])
         pred_head_end = outputs["head_end_logits"].flatten(0, 1).softmax(-1)
+        outputs["tail_start_logits"] = torch.where(torch.isnan(outputs["tail_start_logits"]), torch.full_like(outputs["tail_start_logits"], -1e9), outputs["tail_start_logits"])
         pred_tail_start = outputs["tail_start_logits"].flatten(0, 1).softmax(-1)
+        outputs["tail_end_logits"] = torch.where(torch.isnan(outputs["tail_end_logits"]), torch.full_like(outputs["tail_end_logits"], -1e9), outputs["tail_end_logits"])
         pred_tail_end = outputs["tail_end_logits"].flatten(0, 1).softmax(-1)
 
 
@@ -182,6 +186,7 @@ class HungarianMatcher_dotproduct(nn.Module):
         # print("pred_rel[:, gold_rel]: ", pred_rel[:, gold_rel].shape)
         # print("pred_head_start[:, gold_head_start]: ", pred_head_start[:, gold_head_start].shape)
         if self.matcher == "avg":
+            # time_hungarian_dot_start = time.time()
             cost_rel = get_dot_cost(pred_rel, gold_rel)
             cost_head_start = get_dot_cost(pred_head_start, gold_head_start)
             cost_head_end = get_dot_cost(pred_head_end, gold_head_end)
@@ -190,6 +195,8 @@ class HungarianMatcher_dotproduct(nn.Module):
 
             cost = - self.cost_relation * cost_rel - self.cost_head * 1/2 * (cost_head_start + cost_head_end) - self.cost_tail * 1/2 * (cost_tail_start + cost_tail_end)
 
+            # time_hungarian_dot_end = time.time()
+            # print("time for hungarian_dot: ", time_hungarian_dot_end - time_hungarian_dot_start)
         elif self.matcher == "min":
             pass
         else:
@@ -218,14 +225,16 @@ class HungarianMatcher_dotproduct(nn.Module):
         #     print(f"linear_sum_assignment(c[i]): \n{linear_sum_assignment(c[i])}")
 
         pair = []
-        for i, c in enumerate(cost.split(num_gold_triples, -1)):
+        for i, c in enumerate(cost.split(num_goldILP-model_param-noNoneClass-NoABS-dotproduct_triples, -1)):
             n = num_gold_triples[i]
-            # print("c[i]:\n", c[i])
+            # print(f"(dot_production) c[{i}]:\n{c[i]}")
             k = len(c[i])
             if n > k:
                 print("n_class: ", n, "n_generated_triple: ", k)
             pair.append(linear_sum_assignment(c[i]))
 
+        # time_hungarian_dot_end = time.time()
+        # print("time for hungarian_dot: ", time_hungarian_dot_end - time_hungarian_dot_start)
         # indices = [linear_sum_assignment(c[i]) for i, c in enumerate(cost.split(num_gold_triples, -1))]
 
 
@@ -275,10 +284,14 @@ class ILPMatcher(nn.Module):
         # print("pred_rel: \n", pred_rel)
         # print("gold_rel:\n ", gold_rel)
         # after masking the pad token
-        pred_head_start = outputs["head_start_logits"].flatten(0, 1).softmax(
-            -1)  # [bsz * num_generated_triples, seq_len]
+        # replace all the nan value with -1e9 in the tensor outputs["head_start_logits"]
+        outputs["head_start_logits"] = torch.where(torch.isnan(outputs["head_start_logits"]), torch.full_like(outputs["head_start_logits"], -1e9), outputs["head_start_logits"])
+        pred_head_start = outputs["head_start_logits"].flatten(0, 1).softmax(-1)  # [bsz * num_generated_triples, seq_len]
+        outputs["head_end_logits"] = torch.where(torch.isnan(outputs["head_end_logits"]), torch.full_like(outputs["head_end_logits"], -1e9), outputs["head_end_logits"])
         pred_head_end = outputs["head_end_logits"].flatten(0, 1).softmax(-1)
+        outputs["tail_start_logits"] = torch.where(torch.isnan(outputs["tail_start_logits"]), torch.full_like(outputs["tail_start_logits"], -1e9), outputs["tail_start_logits"])
         pred_tail_start = outputs["tail_start_logits"].flatten(0, 1).softmax(-1)
+        outputs["tail_end_logits"] = torch.where(torch.isnan(outputs["tail_end_logits"]), torch.full_like(outputs["tail_end_logits"], -1e9), outputs["tail_end_logits"])
         pred_tail_end = outputs["tail_end_logits"].flatten(0, 1).softmax(-1)
 
         gold_head_start = torch.cat([v["head_start_index"] for v in targets])
@@ -289,14 +302,10 @@ class ILPMatcher(nn.Module):
         # print("pred_rel[:, gold_rel]: ", pred_rel[:, gold_rel].shape)
         # print("pred_head_start[:, gold_head_start]: ", pred_head_start[:, gold_head_start].shape)
         if self.matcher == "avg":
-            cost_rel = get_dot_cost(pred_rel, gold_rel)
-            cost_head_start = get_dot_cost(pred_head_start, gold_head_start)
-            cost_head_end = get_dot_cost(pred_head_end, gold_head_end)
-            cost_tail_start = get_dot_cost(pred_tail_start, gold_tail_start)
-            cost_tail_end = get_dot_cost(pred_tail_end, gold_tail_end)
-
-            cost = - self.cost_relation * cost_rel - self.cost_head * 1/2 * (cost_head_start + cost_head_end) - self.cost_tail * 1/2 * (cost_tail_start + cost_tail_end)
-
+            cost = - self.cost_relation * pred_rel[:, gold_rel] - self.cost_head * 1 / 2 * (
+                    pred_head_start[:, gold_head_start] + pred_head_end[:,
+                                                          gold_head_end]) - self.cost_tail * 1 / 2 * (
+                           pred_tail_start[:, gold_tail_start] + pred_tail_end[:, gold_tail_end])
         elif self.matcher == "min":
             cost = torch.cat([pred_head_start[:, gold_head_start].unsqueeze(1), pred_rel[:, gold_rel].unsqueeze(1),
                               pred_head_end[:, gold_head_end].unsqueeze(1),
@@ -418,10 +427,14 @@ class ILPMatcher_dotproduct(nn.Module):
         # print("pred_rel: \n", pred_rel)
         # print("gold_rel:\n ", gold_rel)
         # after masking the pad token
-        pred_head_start = outputs["head_start_logits"].flatten(0, 1).softmax(
-            -1)  # [bsz * num_generated_triples, seq_len]
+        # replace all the nan value with -1e9 in the tensor outputs["head_start_logits"]
+        outputs["head_start_logits"] = torch.where(torch.isnan(outputs["head_start_logits"]), torch.full_like(outputs["head_start_logits"], -1e9), outputs["head_start_logits"])
+        pred_head_start = outputs["head_start_logits"].flatten(0, 1).softmax(-1)  # [bsz * num_generated_triples, seq_len]
+        outputs["head_end_logits"] = torch.where(torch.isnan(outputs["head_end_logits"]), torch.full_like(outputs["head_end_logits"], -1e9), outputs["head_end_logits"])
         pred_head_end = outputs["head_end_logits"].flatten(0, 1).softmax(-1)
+        outputs["tail_start_logits"] = torch.where(torch.isnan(outputs["tail_start_logits"]), torch.full_like(outputs["tail_start_logits"], -1e9), outputs["tail_start_logits"])
         pred_tail_start = outputs["tail_start_logits"].flatten(0, 1).softmax(-1)
+        outputs["tail_end_logits"] = torch.where(torch.isnan(outputs["tail_end_logits"]), torch.full_like(outputs["tail_end_logits"], -1e9), outputs["tail_end_logits"])
         pred_tail_end = outputs["tail_end_logits"].flatten(0, 1).softmax(-1)
 
         gold_head_start = torch.cat([v["head_start_index"] for v in targets])
@@ -432,10 +445,14 @@ class ILPMatcher_dotproduct(nn.Module):
         # print("pred_rel[:, gold_rel]: ", pred_rel[:, gold_rel].shape)
         # print("pred_head_start[:, gold_head_start]: ", pred_head_start[:, gold_head_start].shape)
         if self.matcher == "avg":
-            cost = - self.cost_relation * pred_rel[:, gold_rel] - self.cost_head * 1 / 2 * (
-                    pred_head_start[:, gold_head_start] + pred_head_end[:,
-                                                          gold_head_end]) - self.cost_tail * 1 / 2 * (
-                           pred_tail_start[:, gold_tail_start] + pred_tail_end[:, gold_tail_end])
+            cost_rel = get_dot_cost(pred_rel, gold_rel)
+            cost_head_start = get_dot_cost(pred_head_start, gold_head_start)
+            cost_head_end = get_dot_cost(pred_head_end, gold_head_end)
+            cost_tail_start = get_dot_cost(pred_tail_start, gold_tail_start)
+            cost_tail_end = get_dot_cost(pred_tail_end, gold_tail_end)
+
+            cost = - self.cost_relation * cost_rel - self.cost_head * 1/2 * (cost_head_start + cost_head_end) - self.cost_tail * 1/2 * (cost_tail_start + cost_tail_end)
+
         elif self.matcher == "min":
             cost = torch.cat([pred_head_start[:, gold_head_start].unsqueeze(1), pred_rel[:, gold_rel].unsqueeze(1),
                               pred_head_end[:, gold_head_end].unsqueeze(1),
@@ -470,7 +487,7 @@ class ILPMatcher_dotproduct(nn.Module):
             x = {}
             cost_1 = c[i].detach().numpy()
             # cost_1 = c[i].detach().abs().numpy()
-            # print(f"in {i}, cost_1: \n {cost_1}")
+            # print(f"(dot_production) in {i}, cost_1: \n {cost_1}")
             # print("cost_1: \n", cost_1)
             for i in range(n):
                 for j in range(k):

@@ -91,7 +91,7 @@ class Trainer(nn.Module):
 
                 if batch_id % 100 == 0 and batch_id != 0:
                     wandb.log({"loss": loss, "avg_loss": avg_loss.avg})
-                    print(f"     Instance: {start} / {total_batch * batch_size} ({(start / total_batch * batch_size):.2f}%); "
+                    print(f"     Instance: {start} / {total_batch * batch_size} ({((batch_id + 1) / total_batch):.2f}%); "
                           f"loss: {avg_loss.avg:.4f}" , flush=True)
 
             # print(f"avg_loss: {avg_loss.avg}")
@@ -119,6 +119,7 @@ class Trainer(nn.Module):
             #     break
             gc.collect()
             torch.cuda.empty_cache()
+
         print("Best result on validation set is %f achieving at epoch %d." % (best_f1, best_result_epoch), flush=True)
 
 
