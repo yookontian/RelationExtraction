@@ -4,6 +4,7 @@ from models.set_regressive_decoder import SetRegressiveDecoder
 import torch
 from transformers import BertTokenizer
 from models.set_criterion import SetCriterion
+import torch.nn as nn
 
 import time
 
@@ -31,8 +32,17 @@ print("last_hidden_state: ", last_hidden_state.shape)
 print("pooler_output: ", pooler_output.shape, "\n====================\n")
 
 
-# decoder = SetDecoder(encoder.config, 2, 2, 9, return_intermediate=False, use_ILP=False)
-decoder = SetRegressiveDecoder(encoder.config, 2, 2, 9, return_intermediate=False, use_ILP=False)
+# decoder = SetDecoder(encoder.config, 6, 2, 9, return_intermediate=False, use_ILP=False)
+decoder = SetRegressiveDecoder(encoder.config,
+                               15, 1, 9,
+                               return_intermediate=False, use_ILP=False)
+criterion = SetCriterion(9,
+{
+    "relation": torch.tensor([1]),
+    "head_entity": torch.tensor([1]),
+    "tail_entity": torch.tensor([1])
+}
+, na_coef=0.1, losses=["entity", "relation"], matcher="avg", use_ILP=False)
 decoder_output = decoder(encoder_hidden_states=last_hidden_state, encoder_attention_mask=tokenized_text["attention_mask"])
 class_logits, head_start_logits, head_end_logits, tail_start_logits, tail_end_logits  = decoder_output
 
@@ -45,9 +55,11 @@ print("tail_end_logits: ", tail_end_logits.shape)
 # have the argmax of the class_logits
 class_logits_argmax = class_logits.argmax(-1)
 print("class_logits_argmax: ", class_logits_argmax)
-print(f"head_start_logits: \n{head_start_logits}")
+# print(f"head_start_logits: \n{head_start_logits}")
 # print("decoder_output: \n", len(decoder_output))
-outputs = {'pred_rel_logits': class_logits, 'head_start_logits': head_start_logits, 'head_end_logits': head_end_logits, 'tail_start_logits': tail_start_logits, 'tail_end_logits': tail_end_logits}
+outputs = {'pred_rel_logits': class_logits,
+           'head_start_logits': head_start_logits, 'head_end_logits': head_end_logits,
+           'tail_start_logits': tail_start_logits, 'tail_end_logits': tail_end_logits}
 targets = [{
     "relation": torch.tensor([1, 2]),
     "head_start_index": torch.tensor([1, 2]),
@@ -64,13 +76,6 @@ targets = [{
     }
 ]
 
-criterion = SetCriterion(9,
-{
-    "relation": torch.tensor([1]),
-    "head_entity": torch.tensor([1]),
-    "tail_entity": torch.tensor([1])
-}
-, na_coef=0.1, losses=["entity", "relation"], matcher="avg", use_ILP=False)
 
 # print(f"output shape: {outputs['pred_rel_logits'].shape}")
 # print(f"targets shape: {len(targets)}")
@@ -85,6 +90,8 @@ print("entity loss: ", entity_losses)
 relation_losses = criterion.get_loss("relation", outputs, targets, indices)
 print("reloation loss: ", relation_losses)
 
+# print(f"sum of head_start_logits[0][0]: {sum(head_start_logits[0][0])}")
+# print(f"head_start_logits[0][0]: {head_start_logits[0][0]}")
 
 # loss = criterion(outputs, targets)
 # print("loss in test: ", loss)

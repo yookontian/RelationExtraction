@@ -86,16 +86,19 @@ class Trainer(nn.Module):
                     self.optimizer.step()
                     self.model.zero_grad()
 
+                # break
+
                 if batch_id == 0:
                     wandb.log({"loss": loss, "avg_loss": avg_loss.avg})
 
                 if batch_id % 100 == 0 and batch_id != 0:
                     wandb.log({"loss": loss, "avg_loss": avg_loss.avg})
-                    print(f"     Instance: {start} / {total_batch * batch_size} ({((batch_id + 1) / total_batch):.2f}%); "
+                    print(f"     Instance: {start} / {total_batch * batch_size} ({((start / (total_batch * batch_size))*100):.2f}%); "
                           f"loss: {avg_loss.avg:.4f}" , flush=True)
 
+
             # print(f"avg_loss: {avg_loss.avg}")
-            # print(f"loss: {loss}")
+            print(f"loss: {loss}")
             wandb.log({"loss": loss, "avg_loss": avg_loss.avg})
             gc.collect()
             torch.cuda.empty_cache()
@@ -148,6 +151,7 @@ class Trainer(nn.Module):
                 # print(f"gen_triples[0]: {gen_triples[0]}")
                 # print(f"gen_triples[0] length: {len(gen_triples[0])}")
                 prediction.update(gen_triples)
+                # break
 
         num_metric(prediction, gold)
         overlap_metric(prediction, gold)

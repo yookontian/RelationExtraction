@@ -22,17 +22,19 @@ def set_seed(seed):
 class make_args:
     def __init__(self):
         self.generated_data_directory = "data/NYT/generated_data/"
-        self.generated_param_directory = "data/NYT/Hungarian-model-spanbert-regressive/"
+        self.generated_param_directory = "data/NYT/Hungarian-model_param-bi_regressive_decoder_1_3layer-class_embed-SpanBERT-epoch101-200/"
         self.dataset_name = "NYT"
-        self.model_name = "HungarianModel"
+        self.model_name = "Hungarian-model_param-bi_regressive_decoder_1_3layer-class_embed-SpanBERT-epoch101-200"
         # self.bert_directory = "bert-base-cased"
         self.bert_directory = "SpanBERT/spanbert-base-cased"
         self.train_file = "data/NYT/exact_data/train.json"
         self.valid_file = "data/NYT/exact_data/valid.json"
         self.test_file = "data/NYT/exact_data/test.json"
         self.num_generated_triples = 15
+        # self.num_generated_triples = 20
+
         self.num_decoder_layers = 3
-        self.na_rel_coef = 0.25
+
         self.matcher = "avg"
         self.rel_loss_weight = 1.0
         self.head_ent_loss_weight = 2.0
@@ -42,11 +44,14 @@ class make_args:
         self.max_epoch = 100
         self.gradient_accumulation_steps = 1
         self.decoder_lr = 2e-5
+        # self.decoder_lr = 3e-5  #try2
         self.encoder_lr = 1e-5
         self.lr_decay = 0.01
         self.weight_decay = 1e-5
         self.max_grad_norm = 2.5
         self.optimizer = "AdamW"
+        self.na_rel_coef = 0.5
+        # self.na_rel_coef = 0.8
 
         # Evaluation arguments
         self.n_best_size = 100
@@ -62,7 +67,7 @@ class make_args:
         self.use_ILP = False
         self.use_dotproduct = False
         self.use_regressive_decoder = True
-        self.batch_size = 4
+        self.batch_size = 8
 
     def __iter__(self):
         for attr in dir(self):
@@ -77,17 +82,18 @@ data = load_data_setting(a)
 
 model = SetPred4RE(a, data.relational_alphabet.size())
 
+model.load_state_dict(torch.load("data/NYT/Hungarian-model_param-bi_regressive_decoder_1_3layer-class_embed-SpanBERT/ Hungarian-model_param-bi_regressive_decoder_1_3layer-class_embed-SpanBERT_NYT_epoch_89_f1_0.9243.model")['state_dict'])
 
 
 # start a new wandb run to track this script
 wandb.init(
     project="SPN4RE",
-    name="SPN4RE-NYT-Hungarian-SpanBert-regressive-0.25coef",
+    name="SPN4RE-Hungarian-model_param-bi_regressive_decoder_1_3layer-class_embed-SpanBERT-epoch101-200",
 )
 
 wandb.watch(model, log_freq=100)
-
 trainer = Trainer(model, data, a)
+
 print(f"batch_size: {trainer.args.batch_size}")
 print("start training")
 # with torch.no_grad():

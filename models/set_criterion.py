@@ -88,12 +88,14 @@ class SetCriterion(nn.Module):
         # print(f"target_classes_o: {target_classes_o}")
         # target_classes_o: all of the indexies of the relations in the batch
         # target_classes: a size of (src_logits.shape[:2]) tensor, with all the values of num_classes
-        if self.use_ILP:
-            target_classes = torch.full(src_logits.shape[:2], self.num_classes-1,
-                                        dtype=torch.int64, device=src_logits.device)
-        else:
-            target_classes = torch.full(src_logits.shape[:2], self.num_classes,
-                                        dtype=torch.int64, device=src_logits.device)
+        # if self.use_ILP:
+        #     target_classes = torch.full(src_logits.shape[:2], self.num_classes-1,
+        #                                 dtype=torch.int64, device=src_logits.device)
+        # else:
+        # print(f"src_logits.shape: {src_logits.shape}")
+        # print(f"self.num_classes: {self.num_classes}")
+        target_classes = torch.full(src_logits.shape[:2], self.num_classes,
+                                    dtype=torch.int64, device=src_logits.device)
         # print(f"shape of src_logits.shape: {src_logits.shape}")
         # print("shape of target_classes: ", target_classes.shape)
         # print(f"src_logits: \n{src_logits}")

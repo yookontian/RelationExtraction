@@ -24,7 +24,6 @@ class SetDecoder(nn.Module):
 
         self.tail_start_metric_1 = nn.Linear(config.hidden_size, config.hidden_size)
         self.tail_end_metric_1 = nn.Linear(config.hidden_size, config.hidden_size)
-
         self.head_start_metric_2 = nn.Linear(config.hidden_size, config.hidden_size)
         self.head_end_metric_2 = nn.Linear(config.hidden_size, config.hidden_size)
 
@@ -51,6 +50,7 @@ class SetDecoder(nn.Module):
 
     def forward(self, encoder_hidden_states, encoder_attention_mask):
         bsz = encoder_hidden_states.size()[0]
+        # print(f"self.query_embed.weight shape: {self.query_embed.weight.shape}")
         # print("the shape of query_embed.weight: ", self.query_embed.weight.shape)
         # query_embed.weight: (nun_generated_triples, hidden_size)
         # repeat the query_embed.weight for bsz times
@@ -73,10 +73,11 @@ class SetDecoder(nn.Module):
 
         class_logits = self.decoder2class(hidden_states)
 
-
         head_start_logits = self.head_start_metric_3(torch.tanh(
             self.head_start_metric_1(hidden_states).unsqueeze(2) + self.head_start_metric_2(
                 encoder_hidden_states).unsqueeze(1))).squeeze()
+        # print("head_start_logits shape: ", head_start_logits.shape)
+
         head_end_logits = self.head_end_metric_3(torch.tanh(
             self.head_end_metric_1(hidden_states).unsqueeze(2) + self.head_end_metric_2(
                 encoder_hidden_states).unsqueeze(1))).squeeze()

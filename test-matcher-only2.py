@@ -1,5 +1,5 @@
 import torch
-from models.matcher import HungarianMatcher, ILPMatcher, HungarianMatcher_dotproduct, ILPMatcher_dotproduct
+from models.matcher import ILPMatcher_r_h, HungarianMatcher_r_h, HungarianMatcher, ILPMatcher, HungarianMatcher_dotproduct, ILPMatcher_dotproduct
 import time
 
 seed_value = 46
@@ -17,9 +17,9 @@ torch.manual_seed(seed_value)
 outputs = {
     "pred_rel_logits": torch.rand(2, 10, 2),
     "head_start_logits": torch.rand(2, 10, 5),
-    "head_end_logits": torch.rand(2, 10, 5),
-    "tail_start_logits": torch.rand(2, 10, 5),
-    "tail_end_logits": torch.rand(2, 10, 5),
+    # "head_end_logits": torch.rand(2, 10, 5),
+    # "tail_start_logits": torch.rand(2, 10, 5),
+    # "tail_end_logits": torch.rand(2, 10, 5),
 }
 
 # outputs = {
@@ -52,29 +52,35 @@ targets = [{
 # outputs = {k: v.cuda() for k, v in outputs.items()}
 # targets = [{k: v.cuda() for k, v in t.items()} for t in targets]
 
-marcher = HungarianMatcher({
+marcher = HungarianMatcher_r_h({
     "relation": torch.tensor([1]),
     "head_entity": torch.tensor([1]),
     "tail_entity": torch.tensor([1])
 }, "avg")
 
-marcher_1 = ILPMatcher({
+marcher_1 = ILPMatcher_r_h({
     "relation": torch.tensor([1]),
     "head_entity": torch.tensor([1]),
     "tail_entity": torch.tensor([1])
 }, "avg")
 
-marcher_2 = HungarianMatcher_dotproduct({
-    "relation": torch.tensor([1]),
-    "head_entity": torch.tensor([1]),
-    "tail_entity": torch.tensor([1])
-}, "avg")
-
-marcher_3 = ILPMatcher_dotproduct({
-    "relation": torch.tensor([1]),
-    "head_entity": torch.tensor([1]),
-    "tail_entity": torch.tensor([1])
-}, "avg")
+# marcher_1 = ILPMatcher({
+#     "relation": torch.tensor([1]),
+#     "head_entity": torch.tensor([1]),
+#     "tail_entity": torch.tensor([1])
+# }, "avg")
+#
+# marcher_2 = HungarianMatcher_dotproduct({
+#     "relation": torch.tensor([1]),
+#     "head_entity": torch.tensor([1]),
+#     "tail_entity": torch.tensor([1])
+# }, "avg")
+#
+# marcher_3 = ILPMatcher_dotproduct({
+#     "relation": torch.tensor([1]),
+#     "head_entity": torch.tensor([1]),
+#     "tail_entity": torch.tensor([1])
+# }, "avg")
 
 
 # result_1, cost_1 = marcher(outputs, targets)
@@ -92,32 +98,16 @@ marcher_3 = ILPMatcher_dotproduct({
 
 
 time_marcher_start = time.time()
-# print(f"Hungarian: \n{marcher(outputs, targets)}")
+print(f"Hungarian, r_h: \n{marcher(outputs, targets)}")
 a = marcher(outputs, targets)
 time_marcher_end = time.time()
 print("time for HungarianMatcher: ", time_marcher_end - time_marcher_start)
 
-
 time_marcher_start = time.time()
-# print(f"Hungarian_dotproduct: \n{marcher_2(outputs, targets)}")
-a = marcher_2(outputs, targets)
+print(f"ILP, r_h: \n{marcher_1(outputs, targets)}")
+# a = marcher(outputs, targets)
 time_marcher_end = time.time()
-print("time for HungarianMatcher_dotproduct: ", time_marcher_end - time_marcher_start)
-
-
-
-time_marcher_start = time.time()
-# print(f"ILP_dotproduct: \n{marcher_3(outputs, targets)}")
-a = marcher_3(outputs, targets)
-time_marcher_end = time.time()
-print("time for ILPMatcher_dotproduct: ", time_marcher_end - time_marcher_start)
-
-time_marcher_start = time.time()
-# print(f"ILP: \n{marcher_1(outputs, targets)}")
-a = marcher_1(outputs, targets)
-time_marcher_end = time.time()
-print("time for ILPMatcher: ", time_marcher_end - time_marcher_start)
-
+print("time for HungarianMatcher: ", time_marcher_end - time_marcher_start)
 
 
 
