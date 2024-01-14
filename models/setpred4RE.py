@@ -23,7 +23,8 @@ class SetPred4RE(nn.Module):
                                                 args.num_decoder_layers,
                                                 num_classes,
                                                 return_intermediate=False,
-                                                use_ILP=args.use_ILP)
+                                                use_ILP=args.use_ILP,
+                                                model=args.bert_directory)
         else:
             self.decoder = SetDecoder(config,
                                       args.num_generated_triples,

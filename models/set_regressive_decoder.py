@@ -5,11 +5,15 @@ import math
 
 BertLayerNorm = nn.LayerNorm
 
+import json
+from transformers import AutoTokenizer
 
 class SetRegressiveDecoder(nn.Module):
     def __init__(self, config, num_generated_triples, num_layers, num_classes, return_intermediate=False,
-                 use_ILP=False):
+                 use_ILP=False,
+                 model="bert-base-cased"):
         super().__init__()
+
         self.return_intermediate = return_intermediate
         self.num_generated_triples = num_generated_triples
         self.layers = nn.ModuleList([DecoderLayer(config) for _ in range(num_layers)])
@@ -24,7 +28,22 @@ class SetRegressiveDecoder(nn.Module):
             self.decoder2class = nn.Linear(config.hidden_size, num_classes + 1)
             self.relation_embed = nn.Embedding(num_classes+1, config.hidden_size)
             # self.class2hidden = nn.Linear(num_classes + 1, config.hidden_size)
-        # self.decoder2span = nn.Linear(config.hidden_size, 4)
+        torch.nn.init.orthogonal_(self.relation_embed.weight, gain=1)
+
+        # 20240114 updated class embedding
+        # load the relation emebdding
+        if "span" in model:
+            # using torch to load the data/NYT/embeded_rel-SpanBERT.pt
+            relation_embed = torch.load("data/NYT/embeded_rel-SpanBERT.pt")
+        else:
+            relation_embed = torch.load("data/NYT/embeded_rel-BERT.pt")
+        # the relation_embed is in shape[num_classes, hidden_size]
+        # to subplace the [0:num_classes] rows of self.relation_embed
+        self.relation_embed[0:num_classes] = relation_embed
+
+
+
+        # self.decoder2span = nn.Linear(config.hidden_si
 
 
         self.head_start_metric_1 = nn.Linear(config.hidden_size, config.hidden_size)
@@ -100,7 +119,6 @@ class SetRegressiveDecoder(nn.Module):
 
 
 
-        torch.nn.init.orthogonal_(self.relation_embed.weight, gain=1)
         # there won't be any trainable paras in position_embedding
         # self.position_embedding = PositionalEncoding(config.hidden_size, config.hidden_dropout_prob)
 

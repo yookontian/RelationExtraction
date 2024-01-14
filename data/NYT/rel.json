@@ -1,0 +1,24 @@
+{
+  "relation": ["contains", "birthplace", "company", "lived",
+"country",
+"administrative",
+"religion",
+"nationality",
+"children",
+"capital",
+"founded",
+"death",
+"founders",
+"neighbor",
+"advisors",
+"geographic",
+"location",
+"teams",
+"holding",
+"shareholder",
+"ethnicity",
+"people",
+"profession",
+"industry"
+]
+}

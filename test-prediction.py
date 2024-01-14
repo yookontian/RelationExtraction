@@ -78,7 +78,9 @@ a = make_args()
 
 
 data = load_data_setting(a)
-
+print(data.relational_alphabet.instances)
+# stop the programe
+exit()
 
 model = SetPred4RE(a, data.relational_alphabet.size())
 
