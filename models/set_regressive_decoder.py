@@ -137,88 +137,149 @@ class SetRegressiveDecoder(nn.Module):
 
         # print(f"hidden_states shape:\n{hidden_states.shape}")
         class_logits = self.decoder2class(hidden_states)
+
         class_embedding = self.relation_embed(class_logits.argmax(-1))  # [bsz, num_generated_triples, hidden_size]
 
         head_start_forward_logits = torch.tanh(
             self.head_start_metric_1(hidden_states).unsqueeze(2) + self.head_start_metric_4(class_embedding).unsqueeze(2) + self.head_start_metric_2(
                 encoder_hidden_states).unsqueeze(1))
         head_start_forward_logits_ = self.head_start_metric_3(head_start_forward_logits).squeeze()
-        head_start_indices = torch.arange(encoder_hidden_states.size(0)).view(-1, 1).expand_as(
-            head_start_forward_logits_.argmax(-1))
-        head_start_forward = encoder_hidden_states[head_start_indices, head_start_forward_logits_.argmax(-1)]
+        if (len(head_start_forward_logits_.argmax(-1).shape) == 1):
+            head_start_indices = torch.arange(encoder_hidden_states.size(0)).view(-1, 1).expand_as(
+                head_start_forward_logits_.argmax(-1).unsqueeze(0))
+            head_start_forward = encoder_hidden_states[head_start_indices, head_start_forward_logits_.argmax(-1).unsqueeze(0)]
+            # print(f'head_start_forward shape: {head_start_forward.shape}')
+        else:
+            head_start_indices = torch.arange(encoder_hidden_states.size(0)).view(-1, 1).expand_as(
+                head_start_forward_logits_.argmax(-1))
+            head_start_forward = encoder_hidden_states[head_start_indices, head_start_forward_logits_.argmax(-1)]
 
 
         head_end_forward_logits = torch.tanh(
             (self.head_end_metric_1(hidden_states) + self.head_end_metric_4(head_start_forward)).unsqueeze(2) + self.head_end_metric_2(
                 encoder_hidden_states).unsqueeze(1))
         head_end_forward_logits_ = self.head_end_metric_3(head_end_forward_logits).squeeze()
-        head_end_forward = encoder_hidden_states[
-            torch.arange(encoder_hidden_states.size(0)).view(-1, 1).expand_as(head_end_forward_logits_.argmax(-1)), head_end_forward_logits_.argmax(-1)
-        ]
+        if (len(head_end_forward_logits_.argmax(-1).shape) == 1):
+            head_end_forward = encoder_hidden_states[
+                torch.arange(encoder_hidden_states.size(0)).view(-1, 1).expand_as(head_end_forward_logits_.argmax(-1).unsqueeze(0)),
+                head_end_forward_logits_.argmax(-1).unsqueeze(0)
+            ]
+        else:
+            head_end_forward = encoder_hidden_states[
+                torch.arange(encoder_hidden_states.size(0)).view(-1, 1).expand_as(head_end_forward_logits_.argmax(-1)), head_end_forward_logits_.argmax(-1)
+            ]
 
 
         tail_start_forward_logits = torch.tanh(
             (self.tail_start_metric_1(hidden_states) + self.tail_start_metric_4(head_end_forward)).unsqueeze(2) + self.tail_start_metric_2(
                 encoder_hidden_states).unsqueeze(1))
-
         tail_start_forward_logits_ = self.tail_start_metric_3(tail_start_forward_logits).squeeze()
+        if (len(tail_start_forward_logits_.argmax(-1).shape) == 1):
+            tail_start_forward = encoder_hidden_states[
+                torch.arange(encoder_hidden_states.size(0)).view(-1, 1).expand_as(tail_start_forward_logits_.argmax(-1).unsqueeze(0)),
+                tail_start_forward_logits_.argmax(-1).unsqueeze(0)
+            ]
+        else:
+            tail_start_forward = encoder_hidden_states[
+                torch.arange(encoder_hidden_states.size(0)).view(-1, 1).expand_as(tail_start_forward_logits_.argmax(-1)), tail_start_forward_logits_.argmax(-1)
+            ]
 
-        tail_start_forward = encoder_hidden_states[
-            torch.arange(encoder_hidden_states.size(0)).view(-1, 1).expand_as(tail_start_forward_logits_.argmax(-1)), tail_start_forward_logits_.argmax(-1)
-        ]
-        # tail_start_logits_mh = tail_start_logits_mh[0]
-        # tail_start_logits_mh = torch.tanh(
-            # self.tail_start_metric_1(hidden_states).unsqueeze(2) + self.tail_start_metric_2(
-                # encoder_hidden_states).unsqueeze(1))
 
-        # print(f"tail_start_logits_mh shape:\n{tail_start_logits_mh.shape}")
 
-        # tail_end_logits_mh = self.regressive_decoder(query=torch.tanh(tail_start_logits_mh[0]),
-        #                                                key=encoder_hidden_states,
-        #                                                value=encoder_hidden_states,)
         tail_end_forward_logits = torch.tanh(
             (self.tail_end_metric_1(hidden_states) + self.tail_end_metric_4(tail_start_forward)).unsqueeze(2) + self.tail_end_metric_2(
                 encoder_hidden_states).unsqueeze(1))
-        # tail_end_forward_logits_ = self.tail_end_metric_3(tail_end_forward_logits).squeeze()
-        # tail_end_logits_mh = tail_end_logits_mh[0]
-        # tail_end_logits_mh = torch.tanh(
-            # self.tail_end_metric_1(hidden_states).unsqueeze(2) + self.tail_end_metric_2(
-                # encoder_hidden_states).unsqueeze(1))
-
-        head_start_forward_logits= torch.tanh(
-            self.head_start_metric_1(hidden_states).unsqueeze(2) + self.head_start_metric_2(
-                encoder_hidden_states).unsqueeze(1))
-        head_start_forward_logits_ = self.head_start_metric_3(head_start_forward_logits).squeeze()
 
 
         tail_end_back_logits = torch.tanh(
             self.tail_end_metric_1_back(hidden_states).unsqueeze(2) + self.tail_end_metric_4_back(class_embedding).unsqueeze(2) + self.tail_end_metric_2_back(
                 encoder_hidden_states).unsqueeze(1))
         tail_end_back_logits_ = self.tail_end_metric_3_back(tail_end_back_logits).squeeze()
-        tail_end_back = encoder_hidden_states[
-            torch.arange(encoder_hidden_states.size(0)).view(-1, 1).expand_as(tail_end_back_logits_.argmax(-1)), tail_end_back_logits_.argmax(-1)
-        ]
+        if (len(tail_end_back_logits_.argmax(-1).shape) == 1):
+            tail_end_back = encoder_hidden_states[
+                torch.arange(encoder_hidden_states.size(0)).view(-1, 1).expand_as(tail_end_back_logits_.argmax(-1).unsqueeze(0)),
+                tail_end_back_logits_.argmax(-1).unsqueeze(0)
+            ]
+        else:
+            tail_end_back = encoder_hidden_states[
+                torch.arange(encoder_hidden_states.size(0)).view(-1, 1).expand_as(tail_end_back_logits_.argmax(-1)), tail_end_back_logits_.argmax(-1)
+            ]
+
 
         tail_start_back_logits = torch.tanh(
             (self.tail_start_metric_1_back(hidden_states) + self.tail_start_metric_4_back(tail_end_back)).unsqueeze(2) + self.tail_start_metric_2_back(
                 encoder_hidden_states).unsqueeze(1))
         tail_start_back_logits_ = self.tail_start_metric_3_back(tail_start_back_logits).squeeze()
-        tail_start_back = encoder_hidden_states[
-            torch.arange(encoder_hidden_states.size(0)).view(-1, 1).expand_as(tail_start_back_logits_.argmax(-1)), tail_start_back_logits_.argmax(-1)
-        ]
+        if (len(tail_start_back_logits_.argmax(-1).shape) == 1):
+            tail_start_back = encoder_hidden_states[
+                torch.arange(encoder_hidden_states.size(0)).view(-1, 1).expand_as(tail_start_back_logits_.argmax(-1).unsqueeze(0)),
+                tail_start_back_logits_.argmax(-1).unsqueeze(0)
+            ]
+        else:
+            tail_start_back = encoder_hidden_states[
+                torch.arange(encoder_hidden_states.size(0)).view(-1, 1).expand_as(tail_start_back_logits_.argmax(-1)), tail_start_back_logits_.argmax(-1)
+            ]
+
 
         head_end_back_logits = torch.tanh(
             (self.head_end_metric_1_back(hidden_states) + self.head_end_metric_4_back(tail_start_back)).unsqueeze(2) + self.head_end_metric_2_back(
                 encoder_hidden_states).unsqueeze(1))
+
         head_end_back_logits_ = self.head_end_metric_3_back(head_end_back_logits).squeeze()
-        head_end_back = encoder_hidden_states[
-            torch.arange(encoder_hidden_states.size(0)).view(-1, 1).expand_as(head_end_back_logits_.argmax(-1)), head_end_back_logits_.argmax(-1)
-        ]
+        if (len(head_end_back_logits_.argmax(-1).shape) == 1):
+            head_end_back = encoder_hidden_states[
+                torch.arange(encoder_hidden_states.size(0)).view(-1, 1).expand_as(head_end_back_logits_.argmax(-1).unsqueeze(0)),
+                head_end_back_logits_.argmax(-1).unsqueeze(0)
+            ]
+        else:
+            head_end_back = encoder_hidden_states[
+                torch.arange(encoder_hidden_states.size(0)).view(-1, 1).expand_as(head_end_back_logits_.argmax(-1)), head_end_back_logits_.argmax(-1)
+            ]
+
 
         head_start_back_logits = torch.tanh(
             (self.head_start_metric_1_back(hidden_states) + self.head_start_metric_4_back(head_end_back)).unsqueeze(2) + self.head_start_metric_2_back(
                 encoder_hidden_states).unsqueeze(1))
 
+        # before 2024/1/7, I erroneously added this line, but it works well somehow.
+        # after fix17, the pre on train set is lower than before, recall slightly lower, f1 lower.
+        head_start_forward_logits = torch.tanh(
+            self.head_start_metric_1(hidden_states).unsqueeze(2) + self.head_start_metric_2(
+                encoder_hidden_states).unsqueeze(1))
+
+        # 2024/1/10, fix110_2, think the above line may only works for head_start_f_logits and tail_end_b_logits
+        tail_end_back_logits = torch.tanh(
+            self.tail_end_metric_1_back(hidden_states).unsqueeze(2) + self.tail_end_metric_2_back(
+                encoder_hidden_states).unsqueeze(1))
+        """
+        # 2024/1/10, I think the line may be helpful, so I added it for other logits, to see if it works.
+        # Additionally, I commented out the line for regressive_decoder (from class_embedding = to head_start_back_logits =)
+        # fix110 coef0.8 didn't work, the pre on train set is lower than before.
+        head_start_back_logits = torch.tanh(
+            self.head_start_metric_1_back(hidden_states).unsqueeze(2) + self.head_start_metric_2_back(
+                encoder_hidden_states).unsqueeze(1))
+
+        head_end_forward_logits = torch.tanh(
+            self.head_end_metric_1(hidden_states).unsqueeze(2) + self.head_end_metric_2(
+                encoder_hidden_states).unsqueeze(1))
+        head_end_back_logits = torch.tanh(
+            self.head_end_metric_1_back(hidden_states).unsqueeze(2) + self.head_end_metric_2_back(
+                encoder_hidden_states).unsqueeze(1))
+
+        tail_start_forward_logits = torch.tanh(
+            self.tail_start_metric_1(hidden_states).unsqueeze(2) + self.tail_start_metric_2(
+                encoder_hidden_states).unsqueeze(1))
+        tail_start_back_logits = torch.tanh(
+            self.tail_start_metric_1_back(hidden_states).unsqueeze(2) + self.tail_start_metric_2_back(
+                encoder_hidden_states).unsqueeze(1))
+
+        tail_end_forward_logits = torch.tanh(
+            self.tail_end_metric_1(hidden_states).unsqueeze(2) + self.tail_end_metric_2(
+                encoder_hidden_states).unsqueeze(1))
+        tail_end_back_logits = torch.tanh(
+            self.tail_end_metric_1_back(hidden_states).unsqueeze(2) + self.tail_end_metric_2_back(
+                encoder_hidden_states).unsqueeze(1))
+        """
 
         head_start_logits = self.head_start(torch.cat((head_start_forward_logits, head_start_back_logits), dim=-1)).squeeze()
         head_end_logits = self.head_end(torch.cat((head_end_forward_logits, head_end_back_logits), dim=-1)).squeeze()
