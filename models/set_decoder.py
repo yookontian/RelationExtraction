@@ -13,10 +13,12 @@ class SetDecoder(nn.Module):
         self.LayerNorm = BertLayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.query_embed = nn.Embedding(num_generated_triples, config.hidden_size)
+
         if use_ILP:
             self.decoder2class = nn.Linear(config.hidden_size, num_classes)
         else:
             self.decoder2class = nn.Linear(config.hidden_size, num_classes + 1)
+
         # self.decoder2span = nn.Linear(config.hidden_size, 4)
 
         self.head_start_metric_1 = nn.Linear(config.hidden_size, config.hidden_size)
@@ -105,8 +107,9 @@ class DecoderLayer(nn.Module):
             )
         encoder_extended_attention_mask = (1.0 - encoder_extended_attention_mask) * -10000.0
         cross_attention_outputs = self.crossattention(
-            hidden_states=attention_output, encoder_hidden_states=encoder_hidden_states,
-            encoder_attention_mask=encoder_extended_attention_mask
+
+            hidden_states=attention_output, encoder_hidden_states=encoder_hidden_states,  encoder_attention_mask=encoder_extended_attention_mask
+
         )
         attention_output = cross_attention_outputs[0]
         outputs = outputs + cross_attention_outputs[1:]  # add cross attentions if we output attention weights

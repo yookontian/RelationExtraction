@@ -62,7 +62,9 @@ def save_data_setting(data, args):
 
 def load_data_setting(args):
 
-    # saved_path = args.generated_data_directory + args.model_name + "_" + args.dataset_name + "_data.pickle"
+
+    # saved_path = args.generated_data_directory + args.dataset_name + "_" + args.model_name + "_data.pickle"
+
     saved_path = args.generated_data_directory + args.dataset_name + "_" + "ILPmodel" + "_data.pickle"
     with open(saved_path, 'rb') as fp:
         data = pickle.load(fp)
