@@ -5,8 +5,8 @@ import math
 
 BertLayerNorm = nn.LayerNorm
 
-import json
-from transformers import AutoTokenizer
+# import json
+# from transformers import AutoTokenizer
 
 class SetRegressiveDecoder(nn.Module):
     def __init__(self, config, num_generated_triples, num_layers, num_classes, return_intermediate=False,
@@ -30,20 +30,19 @@ class SetRegressiveDecoder(nn.Module):
             # self.class2hidden = nn.Linear(num_classes + 1, config.hidden_size)
         torch.nn.init.orthogonal_(self.relation_embed.weight, gain=1)
 
-        # 20240114 updated class embedding
+        # 20240114 updated class embedding, 20240116: didn't work.
         # load the relation emebdding
-        if "span" in model:
-            # using torch to load the data/NYT/embeded_rel-SpanBERT.pt
-            relation_embed = torch.load("data/NYT/embeded_rel-SpanBERT.pt")
-        else:
-            relation_embed = torch.load("data/NYT/embeded_rel-BERT.pt")
-        # the relation_embed is in shape[num_classes, hidden_size]
-        # to subplace the [0:num_classes] rows of self.relation_embed
-        self.relation_embed[0:num_classes] = relation_embed
+        # if "span" in model:
+        #     # using torch to load the data/NYT/embeded_rel-SpanBERT.pt
+        #     relation_embed = torch.load("data/NYT/embeded_rel-SpanBERT.pt")
+        # else:
+        #     relation_embed = torch.load("data/NYT/embeded_rel-BERT.pt")
+        # # the relation_embed is in shape[num_classes, hidden_size]
+        # # to subplace the [0:num_classes] rows of self.relation_embed
+        # with torch.no_grad():  # Disable gradient tracking
+        #     self.relation_embed.weight[0:num_classes, :] = relation_embed
 
-
-
-        # self.decoder2span = nn.Linear(config.hidden_si
+        # self.decoder2span = nn.Linear(config.hidden_size, 4)
 
 
         self.head_start_metric_1 = nn.Linear(config.hidden_size, config.hidden_size)
@@ -259,17 +258,19 @@ class SetRegressiveDecoder(nn.Module):
             (self.head_start_metric_1_back(hidden_states) + self.head_start_metric_4_back(head_end_back)).unsqueeze(2) + self.head_start_metric_2_back(
                 encoder_hidden_states).unsqueeze(1))
 
+        """
         # before 2024/1/7, I erroneously added this line, but it works well somehow.
         # after fix17, the pre on train set is lower than before, recall slightly lower, f1 lower.
         head_start_forward_logits = torch.tanh(
             self.head_start_metric_1(hidden_states).unsqueeze(2) + self.head_start_metric_2(
                 encoder_hidden_states).unsqueeze(1))
-
+        
         # 2024/1/10, fix110_2, think the above line may only works for head_start_f_logits and tail_end_b_logits
         tail_end_back_logits = torch.tanh(
             self.tail_end_metric_1_back(hidden_states).unsqueeze(2) + self.tail_end_metric_2_back(
                 encoder_hidden_states).unsqueeze(1))
-        """
+        # fix110_2 didn't work, the pre on train set is lower than before.
+        
         # 2024/1/10, I think the line may be helpful, so I added it for other logits, to see if it works.
         # Additionally, I commented out the line for regressive_decoder (from class_embedding = to head_start_back_logits =)
         # fix110 coef0.8 didn't work, the pre on train set is lower than before.

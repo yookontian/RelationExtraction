@@ -19,6 +19,7 @@ def list_index(list1: list, list2: list) -> list:
 
 
 
+
 # def list_index(list1: list, list2: list) -> list:
 #     start = [i for i, x in enumerate(list2) if x == list1[0]]
 #     end = [i for i, x in enumerate(list2) if x == list1[-1]]
@@ -55,10 +56,22 @@ def data_process(input_doc, relational_alphabet, tokenizer):
             tail_entity = remove_accents(triple["em2Text"])
             head_token = tokenizer.tokenize(head_entity)
             tail_token = tokenizer.tokenize(tail_entity)
+            # if RoBERTa is used, it's necessary to identify if the entity is the start of the sentence.
+            head_token_ = tokenizer.tokenize(" " + head_entity)
+            tail_token_ = tokenizer.tokenize(" " + tail_entity)
+
             relation_id = relational_alphabet.get_index(triple["label"])
-            head_start_index, head_end_index = list_index(head_token, token_sent)
+            try:
+                head_start_index, head_end_index = list_index(head_token, token_sent)
+                assert head_end_index >= head_start_index
+            except:
+                head_start_index, head_end_index = list_index(head_token_, token_sent)
             assert head_end_index >= head_start_index
-            tail_start_index, tail_end_index = list_index(tail_token, token_sent)
+            try:
+                tail_start_index, tail_end_index = list_index(tail_token, token_sent)
+                assert tail_end_index >= tail_start_index
+            except:
+                tail_start_index, tail_end_index = list_index(tail_token_, token_sent)
             assert tail_end_index >= tail_start_index
             target["relation"].append(relation_id)
             target["head_start_index"].append(head_start_index)

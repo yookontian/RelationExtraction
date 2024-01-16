@@ -6,6 +6,8 @@ try:
 except:
     from pytorch_transformers import BertTokenizer
 
+from transformers import AutoTokenizer
+
 
 class Data:
     def __init__(self):
@@ -26,7 +28,11 @@ class Data:
         sys.stdout.flush()
 
     def generate_instance(self, args, data_process):
-        tokenizer = BertTokenizer.from_pretrained(args.bert_directory, do_lower_case=False)
+        if args.bert_directory == "bert-base-cased":
+            tokenizer = BertTokenizer.from_pretrained(args.bert_directory, do_lower_case=False)
+        else:
+            print(f"loaded tokenizer from {args.bert_directory}")
+            tokenizer = AutoTokenizer.from_pretrained(args.bert_directory, do_lower_case=False)
         if "train_file" in args:
             self.train_loader = data_process(args.train_file, self.relational_alphabet, tokenizer)
             self.weight = copy.deepcopy(self.relational_alphabet.index_num)

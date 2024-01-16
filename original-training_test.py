@@ -21,12 +21,14 @@ def set_seed(seed):
 
 class make_args:
     def __init__(self):
-        self.generated_data_directory = "data/NYT/generated_data/"
-        self.generated_param_directory = "data/NYT/Hungarian-model_param-bi_regressive_decoder_1_2layer-class_embed-SpanBERT-fix110-_2/"
+        # self.generated_data_directory = "data/NYT/generated_data/"
+        self.generated_data_directory = "data/NYT/RoBERTa_data/"
+        self.generated_param_directory = "data/NYT/Hungarian-model_param-bi_regressive_decoder_1_2layer-class_embed-RoBERTa/"
         self.dataset_name = "NYT"
-        self.model_name = "Hungarian-model_param-bi_regressive_decoder_1_2layer-class_embed-SpanBERT-fix110-_2"
+        self.model_name = "Hungarian-model_param-bi_regressive_decoder_1_2layer-class_embed-RoBERTa"
         # self.bert_directory = "bert-base-cased"
-        self.bert_directory = "SpanBERT/spanbert-base-cased"
+        # self.bert_directory = "SpanBERT/spanbert-base-cased"
+        self.bert_directory = "roberta-base"
         self.train_file = "data/NYT/exact_data/train.json"
         # self.valid_file = "data/NYT/exact_data/valid.json"
         self.valid_file = "data/NYT/exact_data/test.json"
@@ -51,8 +53,8 @@ class make_args:
         self.weight_decay = 1e-5
         self.max_grad_norm = 2.5
         self.optimizer = "AdamW"
-        # self.na_rel_coef = 0.5
         self.na_rel_coef = 0.5
+        # self.na_rel_coef = 0.8
 
         # Evaluation arguments
         self.n_best_size = 100
@@ -99,7 +101,7 @@ model = SetPred4RE(a, data.relational_alphabet.size())
 # start a new wandb run to track this script
 wandb.init(
     project="SPN4RE",
-    name="SPN4RE-Hungarian-model_param-bi_regressive_decoder_1_2layer-class_embed-SpanBERT-fix110-_2",
+    name="SPN4RE-Hungarian-model_param-bi_regressive_decoder_1_2layer-class_embed-RoBERTa",
 )
 
 wandb.watch(model, log_freq=100)
