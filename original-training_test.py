@@ -21,14 +21,14 @@ def set_seed(seed):
 
 class make_args:
     def __init__(self):
-        # self.generated_data_directory = "data/NYT/generated_data/"
-        self.generated_data_directory = "data/NYT/RoBERTa_data/"
-        self.generated_param_directory = "data/NYT/Hungarian-model_param-bi_regressive_decoder_1_2layer-class_embed-RoBERTa/"
+        self.generated_data_directory = "data/NYT/generated_data/"
+        # self.generated_data_directory = "data/NYT/RoBERTa_data/"
+        self.generated_param_directory = "data/NYT/Hungarian-model_param-bi_regressive_decoder_1_2layer-class_embed-SpanBERTwAutoModel/"
         self.dataset_name = "NYT"
-        self.model_name = "Hungarian-model_param-bi_regressive_decoder_1_2layer-class_embed-RoBERTa"
+        self.model_name = "Hungarian-model_param-bi_regressive_decoder_1_2layer-class_embed-SpanBERTwAutoModel"
         # self.bert_directory = "bert-base-cased"
-        # self.bert_directory = "SpanBERT/spanbert-base-cased"
-        self.bert_directory = "roberta-base"
+        self.bert_directory = "SpanBERT/spanbert-base-cased"
+        # self.bert_directory = "roberta-base"
         self.train_file = "data/NYT/exact_data/train.json"
         # self.valid_file = "data/NYT/exact_data/valid.json"
         self.valid_file = "data/NYT/exact_data/test.json"
@@ -101,7 +101,7 @@ model = SetPred4RE(a, data.relational_alphabet.size())
 # start a new wandb run to track this script
 wandb.init(
     project="SPN4RE",
-    name="SPN4RE-Hungarian-model_param-bi_regressive_decoder_1_2layer-class_embed-RoBERTa",
+    name="SPN4RE-Hungarian-model_param-bi_regressive_decoder_1_2layer-class_embed-SpanBERTwAutoModel",
 )
 
 wandb.watch(model, log_freq=100)

@@ -9,6 +9,7 @@ class SeqEncoder(nn.Module):
         if args.bert_directory == "bert-base-cased":
             self.bert = BertModel.from_pretrained(args.bert_directory)
         else:
+            print(f"loaded LM from {args.bert_directory}")
             self.bert = AutoModel.from_pretrained(args.bert_directory)
         if args.fix_bert_embeddings:
             self.bert.embeddings.word_embeddings.weight.requires_grad = False
