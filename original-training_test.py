@@ -23,11 +23,11 @@ class make_args:
     def __init__(self):
         self.generated_data_directory = "data/NYT/generated_data/"
         # self.generated_data_directory = "data/NYT/RoBERTa_data/"
-        self.generated_param_directory = "data/NYT/Hungarian-model_param-bi_regressive_decoder_1_2layer-class_embed-SpanBERTwAutoModel/"
+        self.generated_param_directory = "data/NYT/Hungarian-model_param-bi_regressive_decoder_1_2layer-class_embed-BERT/"
         self.dataset_name = "NYT"
-        self.model_name = "Hungarian-model_param-bi_regressive_decoder_1_2layer-class_embed-SpanBERTwAutoModel"
-        # self.bert_directory = "bert-base-cased"
-        self.bert_directory = "SpanBERT/spanbert-base-cased"
+        self.model_name = "Hungarian-model_param-bi_regressive_decoder_1_2layer-class_embed-BERT"
+        self.bert_directory = "bert-base-cased"
+        # self.bert_directory = "SpanBERT/spanbert-base-cased"
         # self.bert_directory = "roberta-base"
         self.train_file = "data/NYT/exact_data/train.json"
         # self.valid_file = "data/NYT/exact_data/valid.json"
@@ -46,8 +46,8 @@ class make_args:
         self.batch_size = 8
         self.max_epoch = 100
         self.gradient_accumulation_steps = 1
-        # self.decoder_lr = 2e-5
-        self.decoder_lr = 2e-6  #201-300
+        self.decoder_lr = 2e-5
+        # self.decoder_lr = 2e-6  #201-300
         self.encoder_lr = 1e-5
         self.lr_decay = 0.01
         self.weight_decay = 1e-5
@@ -101,7 +101,7 @@ model = SetPred4RE(a, data.relational_alphabet.size())
 # start a new wandb run to track this script
 wandb.init(
     project="SPN4RE",
-    name="SPN4RE-Hungarian-model_param-bi_regressive_decoder_1_2layer-class_embed-SpanBERTwAutoModel",
+    name="SPN4RE-Hungarian-model_param-bi_regressive_decoder_1_2layer-class_embed-BERT",
 )
 
 wandb.watch(model, log_freq=100)
