@@ -35,7 +35,7 @@ class SetPred4RE(nn.Module):
                                       return_intermediate=False,
                                       use_ILP=args.use_ILP)
         self.criterion = SetCriterion(num_classes,  loss_weight=self.get_loss_weight(args), na_coef=args.na_rel_coef,
-                                      losses=["entity", "relation"], matcher=args.matcher, use_ILP=args.use_ILP, use_dotproduct=args.use_dotproduct)
+                                      losses=["entity", "relation"], matcher=args.matcher, use_ILP=args.use_ILP, use_dotproduct=args.use_dotproduct, none_class=args.none_class)
 
     def forward(self, input_ids, attention_mask, targets=None):
         last_hidden_state, pooler_output = self.encoder(input_ids, attention_mask)
