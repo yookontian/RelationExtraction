@@ -37,28 +37,20 @@ class SetRegressiveDecoder(nn.Module):
 
 
         torch.nn.init.orthogonal_(self.relation_embed.weight, gain=1)
-        # load the relation emebdding
-        if "span" in model:
-            # using torch to load the data/NYT/embeded_rel-SpanBERT.pt
-            print("using SpanBERT relation embedding")
-            relation_embed = torch.load("data/NYT/embeded_rel-SpanBERT.pt")
-        else:
-            relation_embed = torch.load("data/NYT/embeded_rel-BERT.pt")
-        # the relation_embed is in shape[num_classes, hidden_size]
-        # to subplace the [0:num_classes] rows of self.relation_embed
-        self.relation_embed[0:num_classes] = relation_embed
 
         # 20240114 updated class embedding, 20240116: didn't work.
         # load the relation emebdding
-        # if "span" in model:
-        #     # using torch to load the data/NYT/embeded_rel-SpanBERT.pt
-        #     relation_embed = torch.load("data/NYT/embeded_rel-SpanBERT.pt")
-        # else:
-        #     relation_embed = torch.load("data/NYT/embeded_rel-BERT.pt")
-        # # the relation_embed is in shape[num_classes, hidden_size]
-        # # to subplace the [0:num_classes] rows of self.relation_embed
-        # with torch.no_grad():  # Disable gradient tracking
-        #     self.relation_embed.weight[0:num_classes, :] = relation_embed
+        if "span" in model:
+            # using torch to load the data/NYT/embeded_rel-SpanBERT.pt
+            print("using SpanBERT class embedding")
+            relation_embed = torch.load("data/NYT/embeded_rel-SpanBERT.pt")
+        else:
+            print("using BERT class embedding")
+            relation_embed = torch.load("data/NYT/embeded_rel-BERT.pt")
+        # the relation_embed is in shape[num_classes, hidden_size]
+        # to subplace the [0:num_classes] rows of self.relation_embed
+        with torch.no_grad():  # Disable gradient tracking
+            self.relation_embed.weight[0:num_classes, :] = relation_embed
 
         # self.decoder2span = nn.Linear(config.hidden_size, 4)
 
