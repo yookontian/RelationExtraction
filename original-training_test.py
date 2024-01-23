@@ -23,11 +23,11 @@ class make_args:
     def __init__(self):
         self.generated_data_directory = "data/NYT/generated_data/"
         # self.generated_data_directory = "data/NYT/RoBERTa_data/"
-        self.generated_param_directory = "data/NYT/Hungarian-model_param-bi_regressive_decoder_1_2layer-class_embed-BERT/"
+        self.generated_param_directory = "data/NYT/Hungarian-model-param-regressive-2layer-SpanBERT_class_embed-noNone-SpanBERT/"
         self.dataset_name = "NYT"
-        self.model_name = "Hungarian-model_param-bi_regressive_decoder_1_2layer-class_embed-BERT"
-        self.bert_directory = "bert-base-cased"
-        # self.bert_directory = "SpanBERT/spanbert-base-cased"
+        self.model_name = "Hungarian-model-param-regressive-2layer-SpanBERT_class_embed-noNone-SpanBERT"
+        # self.bert_directory = "bert-base-cased"
+        self.bert_directory = "SpanBERT/spanbert-base-cased"
         # self.bert_directory = "roberta-base"
         self.train_file = "data/NYT/exact_data/train.json"
         # self.valid_file = "data/NYT/exact_data/valid.json"
@@ -36,7 +36,7 @@ class make_args:
         self.num_generated_triples = 15
         # self.num_generated_triples = 20
 
-        self.num_decoder_layers = 2
+        self.num_decoder_layers = 3
 
         self.matcher = "avg"
         self.rel_loss_weight = 1.0
@@ -71,6 +71,7 @@ class make_args:
         self.use_dotproduct = False
         self.use_regressive_decoder = True
         self.batch_size = 8
+        self.none_class = False
 
     def __iter__(self):
         for attr in dir(self):
@@ -101,7 +102,7 @@ model = SetPred4RE(a, data.relational_alphabet.size())
 # start a new wandb run to track this script
 wandb.init(
     project="SPN4RE",
-    name="SPN4RE-Hungarian-model_param-bi_regressive_decoder_1_2layer-class_embed-BERT",
+    name="SPN4RE-Hungarian-model-param-regressive-2layer-SpanBERT_class_embed-noNone-SpanBERT)",
 )
 
 wandb.watch(model, log_freq=100)

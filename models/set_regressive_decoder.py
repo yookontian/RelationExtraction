@@ -11,7 +11,8 @@ BertLayerNorm = nn.LayerNorm
 class SetRegressiveDecoder(nn.Module):
     def __init__(self, config, num_generated_triples, num_layers, num_classes, return_intermediate=False,
                  use_ILP=False,
-                 model="bert-base-cased"):
+                 model="bert-base-cased",
+                 none_class=True):
         super().__init__()
 
         self.return_intermediate = return_intermediate
@@ -21,14 +22,31 @@ class SetRegressiveDecoder(nn.Module):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.query_embed = nn.Embedding(num_generated_triples, config.hidden_size)
         if use_ILP:
+            print("not using none class")
             self.decoder2class = nn.Linear(config.hidden_size, num_classes)
             self.relation_embed = nn.Embedding(num_classes, config.hidden_size)
-            # self.class2hidden = nn.Linear(num_classes, config.hidden_size)
         else:
-            self.decoder2class = nn.Linear(config.hidden_size, num_classes + 1)
-            self.relation_embed = nn.Embedding(num_classes+1, config.hidden_size)
-            # self.class2hidden = nn.Linear(num_classes + 1, config.hidden_size)
+            if none_class:
+                print("using none class")
+                self.decoder2class = nn.Linear(config.hidden_size, num_classes + 1)
+                self.relation_embed = nn.Embedding(num_classes + 1, config.hidden_size)
+            else:
+                print("not using none class")
+                self.decoder2class = nn.Linear(config.hidden_size, num_classes)
+                self.relation_embed = nn.Embedding(num_classes, config.hidden_size)
+
+
         torch.nn.init.orthogonal_(self.relation_embed.weight, gain=1)
+        # load the relation emebdding
+        if "span" in model:
+            # using torch to load the data/NYT/embeded_rel-SpanBERT.pt
+            print("using SpanBERT relation embedding")
+            relation_embed = torch.load("data/NYT/embeded_rel-SpanBERT.pt")
+        else:
+            relation_embed = torch.load("data/NYT/embeded_rel-BERT.pt")
+        # the relation_embed is in shape[num_classes, hidden_size]
+        # to subplace the [0:num_classes] rows of self.relation_embed
+        self.relation_embed[0:num_classes] = relation_embed
 
         # 20240114 updated class embedding, 20240116: didn't work.
         # load the relation emebdding
