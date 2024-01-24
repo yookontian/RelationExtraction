@@ -23,9 +23,9 @@ class make_args:
     def __init__(self):
         self.generated_data_directory = "data/NYT/generated_data/"
         # self.generated_data_directory = "data/NYT/RoBERTa_data/"
-        self.generated_param_directory = "data/NYT/ILP-model-param-regressive-2layer-SpanBERT_class_embed-noNone-SpanBERT/"
+        self.generated_param_directory = "data/NYT/Hungarian-model-param-regressive-2layer-SpanBERT_class_embed-PosEmbed-SpanBERT/"
         self.dataset_name = "NYT"
-        self.model_name = "ILP-model-param-regressive-2layer-SpanBERT_class_embed-noNone-SpanBERT"
+        self.model_name = "Hungarian-model-param-regressive-2layer-SpanBERT_class_embed-PosEmbed-SpanBERT"
         # self.bert_directory = "bert-base-cased"
         self.bert_directory = "SpanBERT/spanbert-base-cased"
         # self.bert_directory = "roberta-base"
@@ -67,11 +67,12 @@ class make_args:
         self.random_seed = 1
 
         # new attribute
-        self.use_ILP = True
+        self.use_ILP = False
         self.use_dotproduct = False
         self.use_regressive_decoder = True
         self.batch_size = 8
-        self.none_class = False
+        self.none_class = True
+        self.positional_embedding = True
 
     def __iter__(self):
         for attr in dir(self):
@@ -102,7 +103,7 @@ model = SetPred4RE(a, data.relational_alphabet.size())
 # start a new wandb run to track this script
 wandb.init(
     project="SPN4RE",
-    name="SPN4RE-ILP-model-param-regressive-2layer-SpanBERT_class_embed-noNone-SpanBERT)",
+    name="SPN4RE-Hungarian-model-param-regressive-2layer-SpanBERT_class_embed-PosEmbed-SpanBERT)",
 )
 
 wandb.watch(model, log_freq=100)

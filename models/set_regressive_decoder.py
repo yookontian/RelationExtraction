@@ -12,7 +12,8 @@ class SetRegressiveDecoder(nn.Module):
     def __init__(self, config, num_generated_triples, num_layers, num_classes, return_intermediate=False,
                  use_ILP=False,
                  model="bert-base-cased",
-                 none_class=True):
+                 none_class=True,
+                 positional_embedding=False):
         super().__init__()
 
         self.return_intermediate = return_intermediate
@@ -21,6 +22,10 @@ class SetRegressiveDecoder(nn.Module):
         self.LayerNorm = BertLayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.query_embed = nn.Embedding(num_generated_triples, config.hidden_size)
+        self.position_embedding_on = positional_embedding
+        if positional_embedding:
+            print("using positional embedding")
+            self.position_embedding = PositionalEncoding(config.hidden_size, config.hidden_dropout_prob, max_len=num_generated_triples)
         if use_ILP:
             print("not using none class")
             self.decoder2class = nn.Linear(config.hidden_size, num_classes)
@@ -152,6 +157,9 @@ class SetRegressiveDecoder(nn.Module):
         hidden_states = self.dropout(self.LayerNorm(hidden_states))
         all_hidden_states = ()
         # print(f"self.query_embed shape: {self.query_embed.weight.shape}")
+
+        if self.position_embedding_on:
+            hidden_states = self.position_embedding(hidden_states)
 
         for i, layer_module in enumerate(self.layers):
 
