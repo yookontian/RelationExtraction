@@ -71,7 +71,7 @@ class make_args:
         self.use_dotproduct = False
         self.use_regressive_decoder = True
         self.batch_size = 8
-        self.none_class = True
+        self.none_class = True  # defult is True
         self.positional_embedding = True
 
     def __iter__(self):
