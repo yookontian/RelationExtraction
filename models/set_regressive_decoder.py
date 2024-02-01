@@ -13,7 +13,8 @@ class SetRegressiveDecoder(nn.Module):
                  use_ILP=False,
                  model="bert-base-cased",
                  none_class=True,
-                 positional_embedding=False):
+                 positional_embedding=False,
+                 LSTM_on=False):
         super().__init__()
 
         self.return_intermediate = return_intermediate
@@ -59,6 +60,14 @@ class SetRegressiveDecoder(nn.Module):
 
         # self.decoder2span = nn.Linear(config.hidden_size, 4)
 
+        self.LSTM_on = LSTM_on
+        if self.LSTM_on:
+            print("using LSTM")
+            self.head_start = nn.LSTM(config.hidden_size*2, 1, num_layers=1, batch_first=True)
+            self.head_end = nn.LSTM(config.hidden_size*2, 1, num_layers=1, batch_first=True)
+            self.tail_start = nn.LSTM(config.hidden_size*2, 1, num_layers=1, batch_first=True)
+            self.tail_end = nn.LSTM(config.hidden_size*2, 1, num_layers=1, batch_first=True)
+
 
         self.head_start_metric_1 = nn.Linear(config.hidden_size, config.hidden_size)
         self.head_start_metric_1_back = nn.Linear(config.hidden_size, config.hidden_size)
@@ -99,10 +108,12 @@ class SetRegressiveDecoder(nn.Module):
         self.tail_end_metric_4 = nn.Linear(config.hidden_size, 1, bias=False)
         self.tail_end_metric_4_back = nn.Linear(config.hidden_size, 1, bias=False)
 
-        self.head_start = nn.Linear(config.hidden_size*2, 1, bias=False)
-        self.head_end = nn.Linear(config.hidden_size*2, 1, bias=False)
-        self.tail_start = nn.Linear(config.hidden_size*2, 1, bias=False)
-        self.tail_end = nn.Linear(config.hidden_size*2, 1, bias=False)
+        if not self.LSTM_on:
+            self.head_start = nn.Linear(config.hidden_size*2, 1, bias=False)
+            self.head_end = nn.Linear(config.hidden_size*2, 1, bias=False)
+            self.tail_start = nn.Linear(config.hidden_size*2, 1, bias=False)
+            self.tail_end = nn.Linear(config.hidden_size*2, 1, bias=False)
+            # the hidden matrix and cell matrix are initialized to 0 by default.
 
 
         torch.nn.init.orthogonal_(self.head_start_metric_1.weight, gain=1)
@@ -317,11 +328,30 @@ class SetRegressiveDecoder(nn.Module):
             self.tail_end_metric_1_back(hidden_states).unsqueeze(2) + self.tail_end_metric_2_back(
                 encoder_hidden_states).unsqueeze(1))
         """
+        if self.LSTM_on:
+            concated_head_start = torch.cat((head_start_forward_logits, head_start_back_logits), dim=-1)
+            concated_head_start = concated_head_start.view(bsz*self.num_generated_triples, -1, concated_head_start.shape[-1])
+            head_start_logits = self.head_start(concated_head_start)[0].view(bsz, self.num_generated_triples, -1)
 
-        head_start_logits = self.head_start(torch.cat((head_start_forward_logits, head_start_back_logits), dim=-1)).squeeze()
-        head_end_logits = self.head_end(torch.cat((head_end_forward_logits, head_end_back_logits), dim=-1)).squeeze()
-        tail_start_logits = self.tail_start(torch.cat((tail_start_forward_logits, tail_start_back_logits), dim=-1)).squeeze()
-        tail_end_logits = self.tail_end(torch.cat((tail_end_forward_logits, tail_end_back_logits), dim=-1)).squeeze()
+            concated_head_end = torch.cat((head_end_forward_logits, head_end_back_logits), dim=-1)
+            concated_head_end = concated_head_end.view(bsz*self.num_generated_triples, -1, concated_head_end.shape[-1])
+            head_end_logits = self.head_end(concated_head_end)[0].view(bsz, self.num_generated_triples, -1)
+
+            concated_tail_start = torch.cat((tail_start_forward_logits, tail_start_back_logits), dim=-1)
+            concated_tail_start = concated_tail_start.view(bsz*self.num_generated_triples, -1, concated_tail_start.shape[-1])
+            tail_start_logits = self.tail_start(concated_tail_start)[0].view(bsz, self.num_generated_triples, -1)
+
+            concated_tail_end = torch.cat((tail_end_forward_logits, tail_end_back_logits), dim=-1)
+            concated_tail_end = concated_tail_end.view(bsz*self.num_generated_triples, -1, concated_tail_end.shape[-1])
+            tail_end_logits = self.tail_end(concated_tail_end)[0].view(bsz, self.num_generated_triples, -1)
+
+
+        else:
+        # output shape: [bsz, num_generated_triples, length, 1]
+            head_start_logits = self.head_start(torch.cat((head_start_forward_logits, head_start_back_logits), dim=-1)).squeeze()
+            head_end_logits = self.head_end(torch.cat((head_end_forward_logits, head_end_back_logits), dim=-1)).squeeze()
+            tail_start_logits = self.tail_start(torch.cat((tail_start_forward_logits, tail_start_back_logits), dim=-1)).squeeze()
+            tail_end_logits = self.tail_end(torch.cat((tail_end_forward_logits, tail_end_back_logits), dim=-1)).squeeze()
 
         return class_logits, head_start_logits, head_end_logits, tail_start_logits, tail_end_logits
 

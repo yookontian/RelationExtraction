@@ -26,7 +26,8 @@ class SetPred4RE(nn.Module):
                                                 use_ILP=args.use_ILP,
                                                 model=args.bert_directory,
                                                 none_class=args.none_class,
-                                                positional_embedding=args.positional_embedding
+                                                positional_embedding=args.positional_embedding,
+                                                LSTM_on=args.LSTM_on
                                                 )
         else:
             self.decoder = SetDecoder(config,

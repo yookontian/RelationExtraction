@@ -23,9 +23,9 @@ class make_args:
     def __init__(self):
         self.generated_data_directory = "data/NYT/generated_data/"
         # self.generated_data_directory = "data/NYT/RoBERTa_data/"
-        self.generated_param_directory = "data/NYT/Hungarian-model-param-regressive-2layer-SpanBERT_class_embed-PosEmbed-SpanBERT/"
+        self.generated_param_directory = "data/NYT/Hungarian-model-param-regressive-2layer-SpanBERT_class_embed-PosEmbed-LSTMoutput-SpanBERT/"
         self.dataset_name = "NYT"
-        self.model_name = "Hungarian-model-param-regressive-2layer-SpanBERT_class_embed-PosEmbed-SpanBERT"
+        self.model_name = "Hungarian-model-param-regressive-2layer-SpanBERT_class_embed-PosEmbed-LSTMoutput-SpanBERT"
         # self.bert_directory = "bert-base-cased"
         self.bert_directory = "SpanBERT/spanbert-base-cased"
         # self.bert_directory = "roberta-base"
@@ -34,7 +34,7 @@ class make_args:
         self.valid_file = "data/NYT/exact_data/test.json"
         # self.test_file = "data/NYT/exact_data/test.json"
         # self.num_generated_triples = 15
-        self.num_generated_triples = 10
+        self.num_generated_triples = 15
 
         self.num_decoder_layers = 2
 
@@ -72,7 +72,8 @@ class make_args:
         self.use_regressive_decoder = True
         self.batch_size = 8
         self.none_class = True  # defult is True
-        self.positional_embedding = True
+        self.positional_embedding = True    # defult is False
+        self.LSTM_on = True # defult is False
 
     def __iter__(self):
         for attr in dir(self):
@@ -103,7 +104,7 @@ model = SetPred4RE(a, data.relational_alphabet.size())
 # start a new wandb run to track this script
 wandb.init(
     project="SPN4RE",
-    name="SPN4RE-Hungarian-model-param-regressive-2layer-SpanBERT_class_embed-PosEmbed-SpanBERT)",
+    name="SPN4RE-Hungarian-model-param-regressive-2layer-SpanBERT_class_embed-PosEmbed-LSTMoutput-SpanBERT)",
 )
 
 wandb.watch(model, log_freq=100)
